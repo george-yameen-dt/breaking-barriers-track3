@@ -46,4 +46,7 @@
 - **Person's approval:** every approval so far is an unattended test (`approver: test-unattended` or `claude-test-unattended`). A run approved by a person typing `yes` is still to do. With the agents on AgentCore, the approval travels from the laptop through DynamoDB `bb26-team04-track3-approvals`.
 - **Run start:** the operator's laptop reads Dynatrace and starts the run. A Dynatrace Workflow that starts it when the problem opens is designed, not built.
 - **Dynatrace traces:** we have no Dynatrace token with `openpipeline:traces:ingest` scope. Dynatrace shows the chain as log records keyed by `trace_id`. Spans go to Arize only.
+- **Approver role (promotion):** the whole team signs in with one role (`bb26-Participant`), so the approver's role (`ai_engineer`, `network_operator`) is declared on the command line and recorded with the login on each approval. The promotion policy enforces it; IAM does not.
+- **Promoted prompts on AgentCore:** promotion flips the registry, but the runtime `track3_agents` (version 1) still runs the diagnose prompt built into its code. Agents reading the active prompt at run start needs a rebuild and runtime version 2 (planned).
+- **Outcome score, experiment, Track 1 export:** `outcome.py` scores a recovery from Dynatrace data and is tested offline; the `verify`, `experiment` and `export` commands are not built yet. No Track 1 model is trained: the export is the hand-off.
 

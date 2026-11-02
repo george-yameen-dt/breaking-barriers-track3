@@ -8,6 +8,9 @@ Synthetic data only. No operator logs, no customer data.
 | Radio models v1 and v2 | Rule-based policies in `../practice/sim.py` (`actions_for`) | ours | v1: best tower per phone. v2: strong phones take every tower, weak phones get none |
 | Incident scenario (frozen test set) | `scenarios/incident-v2-cutoff.json` | ours | hand-written. Its SHA-256 is in every run's declaration |
 | Policies | `policies/track3.cedar` | ours | hand-written. Its SHA-256 is in every run's declaration |
+| Promotion policies | `policies/promotion.cedar` | ours | hand-written. Its SHA-256 is in every promotion run's declaration |
+| Agent prompt versions | `prompts/<agent>/<version>.txt` | ours | `v1` is the running prompt (`incident.DIAGNOSE`, byte-identical, checked by a test). Each candidate's SHA-256 is in its registry item and its promotion declaration |
+| Business intents | `intents/*.json` | ours | hand-written thresholds and weights for the outcome score (`coverage_first` for voice, `throughput_first` for video) |
 | Dynatrace problem and network state | Dynatrace tenant yqs73977, from the simulator's logs | n/a | read at run time. Recorded in each run's `network_read` record |
 
 ## Model outputs we rely on

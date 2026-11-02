@@ -92,17 +92,21 @@ def pause(cp: Checkpoint, payload: dict) -> dict:
 @app.entrypoint
 def invoke(payload: dict) -> dict:
     mode = payload.get("mode", "incident")
+    if mode in ("swarm", "specialist", "critic"):  # the five-agent swarm: one runtime per agent (agents/cloud.py)
+        from agents import cloud
+        return cloud.handle(payload)
     run_id, trace_id = payload["run_id"], payload["trace_id"]
     cp = Checkpoint(run_id, trace_id, Path("/tmp/track3") / run_id)
-    cp.record("run_start", declared_s3_last_modified=payload.get("declared_s3", ""), commit=payload.get("commit", ""),
-              where="AgentCore Runtime track3_agents", mode=mode, operator=payload.get("operator", ""),
-              **({"scenario": payload["scenario"], "test_set_sha256": payload.get("test_set_sha256", "")} if payload.get("scenario") else {}))
-    try:
-        result = pause(cp, payload) if mode == "pause" else incident(cp, payload)
-    except Exception as e:  # a failed run is a result too: close it properly
-        cp.record("run_error", error=str(e)[:500])
-        result = {"error": str(e)[:500]}
-    cp.record("run_end", outcome=result.get("outcome"))
+    with cp.active():  # spans ADOT starts in here (Bedrock, the gateway) join the run's trace
+        cp.record("run_start", declared_s3_last_modified=payload.get("declared_s3", ""), commit=payload.get("commit", ""),
+                  where="AgentCore Runtime track3_agents", mode=mode, operator=payload.get("operator", ""),
+                  **({"scenario": payload["scenario"], "test_set_sha256": payload.get("test_set_sha256", "")} if payload.get("scenario") else {}))
+        try:
+            result = pause(cp, payload) if mode == "pause" else incident(cp, payload)
+        except Exception as e:  # a failed run is a result too: close it properly
+            cp.record("run_error", error=str(e)[:500])
+            result = {"error": str(e)[:500]}
+        cp.record("run_end", outcome=result.get("outcome"))
     boto3.client("s3", region_name=REGION).upload_file(str(cp.local), BUCKET, f"evidence/runs/{run_id}/records.jsonl")
     return {"run_id": run_id, "trace_id": trace_id, "records": cp.seq, **result}
 

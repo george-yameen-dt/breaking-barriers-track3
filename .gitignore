@@ -19,3 +19,7 @@ __pycache__/
 *.log
 .DS_Store
 practice/control.json
+
+# Swarm dev runs (not declared, not evidence)
+track3/dev-runs/
+track3/agentcore/build_swarm/

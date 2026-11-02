@@ -1,0 +1,49 @@
+// Schema for swarm-autonomous.cedar. A policy change is validated against it before a risk owner sees it, so a
+// misspelled context key (which would silently never permit) is caught as an error.
+
+entity Agent;
+entity Model = { status: String };
+entity Network;
+entity Cell;
+entity Policy;
+
+action invoke_model appliesTo { principal: Agent, resource: Model, context: {} };
+action handoff appliesTo { principal: Agent, resource: Agent, context: {} };
+
+action kpi_snapshot, get_cell_state, get_neighbor_state, get_current_configuration, get_recent_alarm_history,
+       dt_log_patterns, dt_problems, dt_spans, load_skill, simulate_power_change, simulate_tilt_change,
+       simulate_cell_state, estimate_neighbor_impact, run_risk_checks
+  appliesTo { principal: Agent, resource: Network, context: {} };
+
+action dt_query appliesTo {
+  principal: Agent, resource: Network,
+  context: { dql_verb: String, window_minutes: Long, data_object: String, has_write: Bool }
+};
+
+action propose appliesTo {
+  principal: Agent, resource: Cell,
+  context: { parameter: String, proposal_id?: String }
+};
+
+action select_proposal appliesTo {
+  principal: Agent, resource: Cell,
+  context: { proposal_id: String, risk_checks_passed: Bool, critic_agrees: Bool, risk: String }
+};
+
+action apply_cell_configuration appliesTo {
+  principal: Agent, resource: Cell,
+  context: {
+    proposal_id: String, parameter: String, old_value: Long, new_value: Long, abs_delta: Long,
+    risk_checks_passed: Bool, selected_proposal_matches: Bool, applies_this_run: Long, minutes_since_last_change: Long
+  }
+};
+
+action revert_cell_configuration appliesTo {
+  principal: Agent, resource: Cell,
+  context: { proposal_id: String, ledger_status: String, restores_old_value: Bool }
+};
+
+action request_governance_change appliesTo {
+  principal: Agent, resource: Policy,
+  context: { proposal_id: String, denied_by: Set<String> }
+};

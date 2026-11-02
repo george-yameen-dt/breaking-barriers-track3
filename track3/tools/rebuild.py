@@ -1,6 +1,6 @@
 """Reprints every reported result from evidence/, with no AWS access.
 
-Exits with an error if the frozen scenario or the policies changed since a run was declared.
+Exits with an error if the frozen scenario or the policies (network or promotion) changed since a run was declared.
 """
 
 import hashlib
@@ -34,8 +34,11 @@ def main() -> int:
         if decl.get("frozen_state_sha256") and sha(ROOT / "scenarios" / "frozen-state.json") != decl["frozen_state_sha256"]:
             print(f"{run_id}: frozen state changed since it was declared")
             bad += 1
-        if sha(ROOT / "policies" / "track3.cedar") != decl["policies_sha256"]:
+        if sha(ROOT / decl.get("policies_path", "policies/track3.cedar")) != decl["policies_sha256"]:
             print(f"{run_id}: policies changed since it was declared")
+            bad += 1
+        if decl.get("promotion_policies_sha256") and sha(ROOT / "policies" / "promotion.cedar") != decl["promotion_policies_sha256"]:
+            print(f"{run_id}: promotion policies changed since it was declared")
             bad += 1
         recs = load(records)
         units = [u for u in decl["units"] if u in UNITS] + (["judge"] if "judge" in decl.get("target", {}) else [])

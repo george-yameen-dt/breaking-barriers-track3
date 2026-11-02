@@ -28,6 +28,8 @@ from opentelemetry.trace import Status, StatusCode
 
 HERE = Path(__file__).parent
 CONTROL = HERE / "control.json"
+# dtctl uses its current context (dtctl config use-context <name>); set DTCTL_CONTEXT to pin another one.
+DTCTL = ["dtctl", *(["--context", os.environ["DTCTL_CONTEXT"]] if os.environ.get("DTCTL_CONTEXT") else [])]
 TENANT = "https://yqs73977.sprint.dynatracelabs.com"
 LOG_INGEST = "https://yqs73977.sprint.apps.dynatracelabs.com/platform/classic/environment-api/v2/logs/ingest"
 ARIZE_SPACE_ID = "U3BhY2U6NTE5NTA6ckhYRg=="  # team space (agentic-aeric), where Arize Signal reviews the project
@@ -72,7 +74,8 @@ def setup_tracing():
 
 def dql(query):
     # --agent forces the JSON envelope; without it dtctl prints a different shape outside AI tools.
-    out = subprocess.run(["dtctl", "--context", "astroshop", "query", query, "-o", "json", "--agent"],
+    # --max-field-chars 0: agent mode otherwise clips strings at 500 chars (mobile.ues is longer).
+    out = subprocess.run([*DTCTL, "query", query, "-o", "json", "--agent", "--max-field-chars", "0"],
                          capture_output=True, text=True, timeout=60)
     reply = json.loads(out.stdout or "{}")
     if not reply.get("ok"):

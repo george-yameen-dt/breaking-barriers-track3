@@ -6,15 +6,18 @@ app-experience numbers, and the findings registry across every problem the agent
 """
 
 import json
+import os
 import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 OUT = Path(__file__).parent / "demo-pages" / "data.js"
+# dtctl uses its current context (dtctl config use-context <name>); set DTCTL_CONTEXT to pin another one.
+DTCTL = ["dtctl", *(["--context", os.environ["DTCTL_CONTEXT"]] if os.environ.get("DTCTL_CONTEXT") else [])]
 
 
 def dql(query):
-    out = subprocess.run(["dtctl", "--context", "astroshop", "query", query, "-o", "json", "--agent"],
+    out = subprocess.run([*DTCTL, "query", query, "-o", "json", "--agent", "--max-field-chars", "0"],
                          capture_output=True, text=True, timeout=120)
     reply = json.loads(out.stdout)
     if not reply.get("ok"):

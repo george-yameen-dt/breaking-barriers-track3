@@ -4,25 +4,26 @@ For each call it: decides with Cedar (policies/track3.cedar), screens model inpu
 Amazon Bedrock Guardrails, and writes an audit record with the run id and trace id to
 CloudWatch Logs (the official record), DynamoDB (for the judges' read-only live test) and a local
 JSONL file (for the offline rebuild). Dynatrace gets a copy of each record as the operator view.
+Each record is also a span in the run's trace (telemetry.py): CloudWatch always, Dynatrace and Arize for declared runs.
 """
 
+import contextlib
 import hashlib
 import json
 import os
-import re
 import time
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
 import boto3
-import cedarpy
+from opentelemetry import context as otel_context
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
-from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
+from opentelemetry.trace import NonRecordingSpan, SpanContext, Status, StatusCode, TraceFlags
+
+import telemetry
+from policy import PolicySet
 
 REGION = "us-east-2"
 LOG_GROUP = "/bb26/team04/track3"
@@ -31,44 +32,54 @@ REGISTRY_TABLE = "bb26-team04-track3-registry"
 GUARDRAIL_ID = "lr4zff1274hc"
 GUARDRAIL_VERSION = "DRAFT"
 HERE = Path(__file__).parent
-POLICIES = HERE / "policies" / "track3.cedar"
+POLICIES = HERE / "policies" / "track3.cedar"  # network changes; frozen, its hash is in every declared run
+PROMOTION_POLICIES = HERE / "policies" / "promotion.cedar"  # changes to the agents themselves
 DT_LOGS = "https://yqs73977.sprint.apps.dynatracelabs.com/platform/classic/environment-api/v2/logs/ingest"
+DT_TRACES = "https://yqs73977.sprint.dynatracelabs.com/api/v2/otlp/v1/traces"
 # Spans go to the team's Arize space (agentic-aeric), where Arize Signal reviews the project and files issues.
 # On AgentCore both ARIZE_SPACE_ID and ARIZE_API_KEY come from the team04/track3 secret.
 ARIZE_SPACE_ID = os.environ.get("ARIZE_SPACE_ID", "U3BhY2U6NTE5NTA6ckhYRg==")
 ARIZE_PROJECT = "bb26-hackathon"
 ARIZE_KEY_FILE = Path.home() / ".arize_api_key_bb26"
+ARIZE_TRACES = "https://otlp.arize.com/v1/traces"
 
 # Tools that change the network. Each needs a policy decision and, where the policy says so, a person's approval.
 STATE_CHANGING = {"restart_all_towers", "set_tower_power", "rollback_model"}
 
 
-class _RunTraceIds(RandomIdGenerator):
-    """Every span of a run uses the run's trace id, so Arize (and Dynatrace) show the same id as the audit records."""
-
-    def __init__(self, trace_id: str):
-        self._trace_id = int(trace_id, 16)
-
-    def generate_trace_id(self) -> int:
-        return self._trace_id
-
-
-def make_tracer(trace_id: str):
-    provider = TracerProvider(resource=Resource.create({"service.name": "track3-checkpoint", "openinference.project.name": ARIZE_PROJECT}),
-                              id_generator=_RunTraceIds(trace_id))
+def mirror_run(trace_id: str) -> None:
+    """Dynatrace and Arize get this run's trace when their credentials are set now (dev runs remove them first)."""
     key = os.environ.get("ARIZE_API_KEY") or (ARIZE_KEY_FILE.read_text().strip() if ARIZE_KEY_FILE.exists() else "")
     if key:
-        provider.add_span_processor(SimpleSpanProcessor(OTLPSpanExporter(
-            endpoint="https://otlp.arize.com/v1/traces", headers={"space_id": ARIZE_SPACE_ID, "api_key": key})))
+        telemetry.mirror("arize", trace_id, lambda: telemetry.WithResource(OTLPSpanExporter(
+            endpoint=ARIZE_TRACES, headers={"space_id": ARIZE_SPACE_ID, "api_key": key}), {"openinference.project.name": ARIZE_PROJECT}),
+            keep=telemetry.is_openinference)
     token = os.environ.get("DT_TRACES_TOKEN")
-    if token:
-        provider.add_span_processor(SimpleSpanProcessor(OTLPSpanExporter(
-            endpoint="https://yqs73977.sprint.dynatracelabs.com/api/v2/otlp/v1/traces", headers={"Authorization": f"Bearer {token}"})))
-    return provider, provider.get_tracer("track3")
+    if token:  # a classic access token (dt0c01.) is sent as Api-Token, a platform token as Bearer
+        auth = f"Api-Token {token}" if token.startswith("dt0c01.") else f"Bearer {token}"
+        telemetry.mirror("dynatrace", trace_id, lambda: OTLPSpanExporter(endpoint=DT_TRACES, headers={"Authorization": auth}))
+
+
+def _root_parent(trace_id: str, parent_span_id: str) -> tuple:
+    """Where a runtime's root span hangs, and how that was learned.
+    - "traceparent": the caller sent the W3C traceparent header (InvokeAgentRuntime traceParent) and this runtime's
+      instrumentation made it the current context, so the root continues the caller's trace the standard way;
+    - "payload": the span id the caller put in the payload (the fallback when the header was not picked up);
+    - "none": the run's first runtime starts the trace."""
+    current = trace.get_current_span().get_span_context()
+    if current.is_valid and current.trace_id == int(trace_id, 16):
+        return otel_context.get_current(), "traceparent"
+    if not parent_span_id:
+        return otel_context.Context(), "none"
+    parent = SpanContext(int(trace_id, 16), int(parent_span_id, 16), is_remote=True, trace_flags=TraceFlags(TraceFlags.SAMPLED))
+    return trace.set_span_in_context(NonRecordingSpan(parent), otel_context.Context()), "payload"
 
 
 class Refused(Exception):
     """A call the checkpoint did not allow."""
+
+
+MAX_SPAN_TEXT = 20000  # input.value / output.value are cut here, so one span stays well under OTLP limits
 
 
 def sha256(text: str) -> str:
@@ -80,7 +91,7 @@ def now_iso() -> str:
 
 
 class Checkpoint:
-    def __init__(self, run_id: str, trace_id: str, out_dir: Path):
+    def __init__(self, run_id: str, trace_id: str, out_dir: Path, parent_span_id: str = ""):
         self.run_id, self.trace_id = run_id, trace_id
         self.out_dir = out_dir
         self.out_dir.mkdir(parents=True, exist_ok=True)
@@ -89,33 +100,86 @@ class Checkpoint:
         self.logs = boto3.client("logs", region_name=REGION)
         self.ddb = boto3.client("dynamodb", region_name=REGION)
         self.runtime = boto3.client("bedrock-runtime", region_name=REGION)
-        self.provider, self.tracer = make_tracer(trace_id)
-        self.root = self.tracer.start_span(f"track3 {run_id}", attributes={"openinference.span.kind": "AGENT", "track3.run_id": run_id})
-        self.policies = POLICIES.read_text()
-        # Cedar names policies policy0, policy1... in file order; map those to our @id names.
-        self.policy_ids = re.findall(r'@id\("([^"]+)"\)', self.policies)
+        mirror_run(trace_id)
+        self.tracer = telemetry.tracer(trace_id)
+        parent_context, parent_from = _root_parent(trace_id, parent_span_id)
+        self.root = self.tracer.start_span(f"track3 {run_id}", context=parent_context,
+                                           attributes={"openinference.span.kind": "AGENT", "track3.run_id": run_id,
+                                                                       "track3.parent_from": parent_from})
+        self._root_open = True
+        self.policy_sets = {"network": PolicySet(POLICIES), "promotion": PolicySet(PROMOTION_POLICIES)}
+        self.policies, self.policy_ids = self.policy_sets["network"].text, self.policy_sets["network"].ids
         try:
-            self.logs.create_log_stream(logGroupName=LOG_GROUP, logStreamName=run_id)
+            with telemetry.quiet():
+                self.logs.create_log_stream(logGroupName=LOG_GROUP, logStreamName=run_id)
         except self.logs.exceptions.ResourceAlreadyExistsException:
             pass
+
+    # ---- trace -------------------------------------------------------------------------------
+    @contextlib.contextmanager
+    def active(self):
+        """Makes the run's root the current span, so spans ADOT starts inside (Bedrock, boto3) join the run's trace."""
+        token = otel_context.attach(trace.set_span_in_context(self.root))
+        try:
+            yield self
+        finally:
+            otel_context.detach(token)
+
+    @contextlib.contextmanager
+    def context(self):
+        """Makes the step that is running now (or the run's root) the current span, for code that starts spans itself."""
+        token = otel_context.attach(self._parent())
+        try:
+            yield
+        finally:
+            otel_context.detach(token)
+
+    def _parent(self):
+        """The current span when it belongs to this run's trace, so a record nests under the step that wrote it;
+        otherwise the run's root."""
+        current = trace.get_current_span()
+        if current.is_recording() and current.get_span_context().trace_id == int(self.trace_id, 16):
+            return otel_context.get_current()
+        return trace.set_span_in_context(self.root)
+
+    @contextlib.contextmanager
+    def span(self, name: str, kind: str, **attrs):
+        """A real span around one step (an agent's turn, a model call, a tool call): it has a duration, nests under the
+        step that started it, and is OK unless the step raised (then ERROR, with the exception). kind is OpenInference's
+        span kind (AGENT, LLM, TOOL, CHAIN), which Arize reads."""
+        attributes = {"openinference.span.kind": kind, "track3.run_id": self.run_id,
+                      **{k: v for k, v in attrs.items() if v is not None}}
+        with self.tracer.start_as_current_span(name, context=self._parent(), attributes=attributes) as s:
+            yield s
+            s.set_status(Status(StatusCode.OK))
+
+    def close(self) -> None:
+        """Ends the run's root span once and sends what is buffered. Every runtime calls it when its part is done."""
+        if self._root_open:
+            self._root_open = False
+            self.root.end()
+        telemetry.flush()
 
     # ---- audit -------------------------------------------------------------------------------
     def record(self, kind: str, **fields) -> dict:
         self.seq += 1
         rec = {"run_id": self.run_id, "trace_id": self.trace_id, "seq": self.seq, "time": now_iso(), "kind": kind, **fields}
         line = json.dumps(rec, sort_keys=True)
-        self.logs.put_log_events(logGroupName=LOG_GROUP, logStreamName=self.run_id,
-                                 logEvents=[{"timestamp": int(time.time() * 1000), "message": line}])
-        self.ddb.put_item(TableName=RECORDS_TABLE, Item={
-            "run_id": {"S": self.run_id}, "seq": {"S": f"{self.seq:04d}"}, "trace_id": {"S": self.trace_id},
-            "kind": {"S": kind}, "time": {"S": rec["time"]}, "record": {"S": line}})
-        with self.local.open("a") as f:
-            f.write(line + "\n")
-        self._to_dynatrace(rec)
+        with telemetry.quiet():  # the record itself is a span (_to_trace); its writes are bookkeeping
+            self.logs.put_log_events(logGroupName=LOG_GROUP, logStreamName=self.run_id,
+                                     logEvents=[{"timestamp": int(time.time() * 1000), "message": line}])
+            self.ddb.put_item(TableName=RECORDS_TABLE, Item={
+                "run_id": {"S": self.run_id}, "seq": {"S": f"{self.seq:04d}"}, "trace_id": {"S": self.trace_id},
+                "kind": {"S": kind}, "time": {"S": rec["time"]}, "record": {"S": line}})
+            with self.local.open("a") as f:
+                f.write(line + "\n")
+            self._to_dynatrace(rec)
         self._to_trace(rec)
         return rec
 
     def _to_trace(self, rec: dict) -> None:
+        if rec["kind"] in ("model_call", "tool_call"):
+            return  # these already have a real span (Checkpoint.span); the record stays in the audit trail
         kinds = {"model_call": "LLM", "judged": "EVALUATOR", "decision": "GUARDRAIL", "guardrail": "GUARDRAIL", "executed": "TOOL",
                  "denied": "TOOL", "handoff": "AGENT"}
         attrs = {"openinference.span.kind": kinds.get(rec["kind"], "CHAIN"), "track3.run_id": rec["run_id"], "track3.seq": rec["seq"]}
@@ -128,11 +192,11 @@ class Checkpoint:
             attrs.update({"llm.model_name": rec["model_id"], "output.value": rec.get("output", ""),
                           "llm.token_count.prompt": rec.get("input_tokens", 0), "llm.token_count.completion": rec.get("output_tokens", 0)})
         name = f"{rec['kind']} {rec.get('action') or rec.get('tool') or rec.get('who') or ''}".strip()
-        span = self.tracer.start_span(name, context=trace.set_span_in_context(self.root), attributes=attrs)
+        span = self.tracer.start_span(name, context=self._parent(), attributes=attrs)
+        span.set_status(Status(StatusCode.OK))
         span.end()
         if rec["kind"] == "run_end":
-            self.root.end()
-            self.provider.force_flush()
+            self.close()
 
     def _to_dynatrace(self, rec: dict) -> None:
         token = os.environ.get("DT_PLATFORM_TOKEN")
@@ -151,22 +215,18 @@ class Checkpoint:
             pass
 
     # ---- policy ------------------------------------------------------------------------------
-    def evaluate(self, principal: str, action: str, resource: str, context: dict, attrs: dict | None = None) -> tuple:
+    def evaluate(self, principal: str, action: str, resource: str, context: dict, attrs: dict | None = None,
+                 policy_set: str = "network") -> tuple:
         """Ask Cedar without writing a record (used to check whether an approval would help)."""
-        rtype, rid = resource.split("::", 1)
-        entities = [{"uid": {"__entity": {"type": rtype, "id": rid.strip('"')}}, "attrs": attrs or {}, "parents": []}]
-        result = cedarpy.is_authorized({"principal": principal, "action": f'Action::"{action}"', "resource": resource,
-                                        "context": context}, self.policies, entities)
-        decision = "Allow" if result.decision == cedarpy.Decision.Allow else "Deny"
-        reasons = [self.policy_ids[int(r[6:])] if r.startswith("policy") and r[6:].isdigit() and int(r[6:]) < len(self.policy_ids) else r
-                   for r in result.diagnostics.reasons]
-        why = reasons or (["no policy permits this call"] if decision == "Deny" else [])
-        return decision, why, [str(e) for e in result.diagnostics.errors]
+        return self.policy_sets[policy_set].evaluate(principal, action, resource, context, attrs)
 
-    def decide(self, principal: str, action: str, resource: str, context: dict, attrs: dict | None = None) -> dict:
-        decision, why, errors = self.evaluate(principal, action, resource, context, attrs)
+    def decide(self, principal: str, action: str, resource: str, context: dict, attrs: dict | None = None,
+               policy_set: str = "network") -> dict:
+        decision, why, errors = self.evaluate(principal, action, resource, context, attrs, policy_set)
+        # Network decisions keep their original record shape; other sets say which one decided.
+        extra = {} if policy_set == "network" else {"policy_set": policy_set}
         return self.record("decision", principal=principal, action=action, resource=resource, context=context,
-                           resource_attrs=attrs or {}, decision=decision, policies=why, errors=errors)
+                           resource_attrs=attrs or {}, decision=decision, policies=why, errors=errors, **extra)
 
     # ---- guardrails --------------------------------------------------------------------------
     def guard(self, source: str, text: str, who: str) -> str:
@@ -191,31 +251,13 @@ class Checkpoint:
 
     # ---- calls -------------------------------------------------------------------------------
     def call_model(self, agent: str, model_id: str, system: str, prompt: str, max_tokens: int = 1500) -> dict:
-        """One model call, through policy, guardrail in, Bedrock, guardrail out, audit."""
-        status = self.model_status(model_id)
-        d = self.decide(f'Agent::"{agent}"', "invoke_model", f'Model::"{model_id}"', {}, {"status": status})
-        if d["decision"] != "Allow":
-            self.record("refused", who=agent, model_id=model_id, reason=f"model is {status}")
-            raise Refused(f"{model_id} is {status}: calls are refused")
-        prompt = self.guard("INPUT", prompt, agent)
-        t0 = time.time()
-        try:
-            r = self.runtime.converse(modelId=model_id, system=[{"text": system}],
-                                      messages=[{"role": "user", "content": [{"text": prompt}]}],
-                                      inferenceConfig={"maxTokens": max_tokens, **({} if "anthropic" in model_id else {"temperature": 0.2})})
-        except Exception as e:  # a failed call is a result too: record it before it propagates
-            meta = getattr(e, "response", {}).get("ResponseMetadata", {}) if hasattr(e, "response") else {}
-            self.record("model_call_failed", who=agent, model_id=model_id, request_id=meta.get("RequestId", ""),
-                        latency_ms=int((time.time() - t0) * 1000), error=str(e)[:500], prompt_sha256=sha256(system + "\n" + prompt))
-            raise
-        text = "".join(c.get("text", "") for c in r["output"]["message"]["content"])
-        text = self.guard("OUTPUT", text, agent)
-        usage = r.get("usage", {})
-        self.record("model_call", who=agent, model_id=model_id, request_id=r["ResponseMetadata"]["RequestId"],
-                    latency_ms=int((time.time() - t0) * 1000), input_tokens=usage.get("inputTokens", 0),
-                    output_tokens=usage.get("outputTokens", 0), prompt_sha256=sha256(system + "\n" + prompt),
-                    output_sha256=sha256(text), output=text[:2000])
-        return {"text": text, "usage": usage}
+        """One model call with no tools (the judge, the two-agent incident), on Strands through the checkpoint:
+        policy and model registry, guardrail in, Bedrock, guardrail out, audit (agent_loop.py)."""
+        from agent_loop import ask, make_agent  # here, not at import: agent_loop imports this module
+
+        agent, governed = make_agent(self, agent, model_id, system, prompt, {}, {}, max_turns=1, max_tokens=max_tokens)
+        text = ask(agent, self, self.guard("INPUT", prompt, agent.name))
+        return {"text": text, "usage": governed.usage}
 
     def handoff(self, from_agent: str, to_agent: str, summary: str) -> dict:
         d = self.decide(f'Agent::"{from_agent}"', "handoff", f'Agent::"{to_agent}"', {})

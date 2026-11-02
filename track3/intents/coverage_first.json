@@ -1,0 +1,10 @@
+{
+  "name": "coverage_first",
+  "about": "Real-time voice (WhatsApp-like): every phone in range must stay connected; speed comes second.",
+  "clean_minutes": 3,
+  "restore_within_minutes": 6,
+  "close_within_minutes": 10,
+  "median_rate_floor": 1.0,
+  "weights": {"restored": 0.6, "problem_closed": 0.2, "no_regression": 0.2},
+  "required": ["restored", "no_regression"]
+}

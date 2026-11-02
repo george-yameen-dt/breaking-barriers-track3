@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How It Works</title>
+<style>
+  :root {
+    --ink: #1b2330; --muted: #5b6676; --paper: #ffffff;
+    --dt: #0f8a8a; --dt-bg: #e8f6f6;
+    --aws: #c26a00; --aws-bg: #fdf3e6;
+    --arz: #4b46c8; --arz-bg: #efeefd;
+    --ppl: #2f7d3b; --ppl-bg: #eaf5ec;
+  }
+  @page { size: 11in 8.5in; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--paper); color: var(--ink);
+    font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page { width: 11in; height: 8.5in; padding: 0.4in 0.45in 0.3in; overflow: hidden; }
+  h1 { font-size: 26px; margin: 0; letter-spacing: -0.3px; }
+  .sub { font-size: 13px; color: var(--muted); margin: 5px 0 0; }
+  svg { width: 100%; height: auto; display: block; margin-top: 8px; }
+</style>
+</head>
+<body>
+<section class="page">
+  <h1>How it works, in one picture</h1>
+  <p class="sub">AI agents fix a mobile network and get better over time, but nothing changes without the right person saying yes. team04 · Breaking Barriers 2026</p>
+
+  <svg viewBox="0 0 1400 900" role="img" aria-label="A loop of six steps: notice, propose, approve, fix and check, learn, improve; one checkpoint in the middle">
+    <defs>
+      <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#8a94a3"/>
+      </marker>
+      <style>
+        .card { stroke-width: 2.5; }
+        .num { font-size: 22px; font-weight: 800; fill: #fff; text-anchor: middle; }
+        .ttl { font-size: 30px; font-weight: 800; fill: #1b2330; }
+        .who { font-size: 16px; font-weight: 700; }
+        .txt { font-size: 18px; fill: #2c3644; }
+        .st { font-size: 13px; font-weight: 700; letter-spacing: 0.5px; }
+        .flow { fill: none; stroke: #8a94a3; stroke-width: 6; marker-end: url(#ah); }
+        .fl { font-size: 15px; fill: #5b6676; font-style: italic; }
+      </style>
+    </defs>
+
+    <!-- ===== Top row: 1 Notice, 2 Propose, 3 Approve ===== -->
+    <g transform="translate(40,30)">
+      <rect class="card" width="380" height="190" rx="16" fill="#e8f6f6" stroke="#0f8a8a"/>
+      <circle cx="40" cy="42" r="20" fill="#0f8a8a"/><text class="num" x="40" y="50">1</text>
+      <text class="ttl" x="74" y="53">Notice</text>
+      <text class="who" x="74" y="80" fill="#0f8a8a">DYNATRACE</text>
+      <text class="txt" x="24" y="122">Spots the problem from live network</text>
+      <text class="txt" x="24" y="148">data: phones are being cut off.</text>
+      <text class="st" x="24" y="176" fill="#22622c">● BUILT</text>
+    </g>
+    <g transform="translate(510,30)">
+      <rect class="card" width="380" height="190" rx="16" fill="#fdf3e6" stroke="#c26a00"/>
+      <circle cx="40" cy="42" r="20" fill="#c26a00"/><text class="num" x="40" y="50">2</text>
+      <text class="ttl" x="74" y="53">Propose</text>
+      <text class="who" x="74" y="80" fill="#c26a00">AI AGENTS ON AWS</text>
+      <text class="txt" x="24" y="122">Work out the cause and suggest</text>
+      <text class="txt" x="24" y="148">a fix. They can't apply it alone.</text>
+      <text class="st" x="24" y="176" fill="#22622c">● BUILT</text>
+    </g>
+    <g transform="translate(980,30)">
+      <rect class="card" width="380" height="190" rx="16" fill="#eaf5ec" stroke="#2f7d3b"/>
+      <circle cx="40" cy="42" r="20" fill="#2f7d3b"/><text class="num" x="40" y="50">3</text>
+      <text class="ttl" x="74" y="53">Approve</text>
+      <text class="who" x="74" y="80" fill="#2f7d3b">NETWORK OPERATOR</text>
+      <text class="txt" x="24" y="122">A person says yes before anything</text>
+      <text class="txt" x="24" y="148">changes on the network.</text>
+      <text class="st" x="24" y="176" fill="#22622c">● BUILT</text>
+    </g>
+
+    <!-- ===== Bottom row: 6 Improve, 5 Learn, 4 Fix & check ===== -->
+    <g transform="translate(980,610)">
+      <rect class="card" width="380" height="190" rx="16" fill="#e8f6f6" stroke="#0f8a8a"/>
+      <circle cx="40" cy="42" r="20" fill="#0f8a8a"/><text class="num" x="40" y="50">4</text>
+      <text class="ttl" x="74" y="53">Fix &amp; check</text>
+      <text class="who" x="74" y="80" fill="#0f8a8a">AWS + DYNATRACE</text>
+      <text class="txt" x="24" y="122">The fix runs. Dynatrace confirms the</text>
+      <text class="txt" x="24" y="148">network really recovered.</text>
+      <text class="st" x="24" y="176" fill="#b4236b">● CHECK IN PROGRESS</text>
+    </g>
+    <g transform="translate(510,610)">
+      <rect class="card" width="380" height="190" rx="16" fill="#efeefd" stroke="#4b46c8"/>
+      <circle cx="40" cy="42" r="20" fill="#4b46c8"/><text class="num" x="40" y="50">5</text>
+      <text class="ttl" x="74" y="53">Learn</text>
+      <text class="who" x="74" y="80" fill="#4b46c8">ARIZE</text>
+      <text class="txt" x="24" y="122">Scores how well the agents did and</text>
+      <text class="txt" x="24" y="148">collects lessons: what to do better.</text>
+      <text class="st" x="24" y="176" fill="#b4236b">● IN PROGRESS</text>
+    </g>
+    <g transform="translate(40,610)">
+      <rect class="card" width="380" height="190" rx="16" fill="#eaf5ec" stroke="#2f7d3b"/>
+      <circle cx="40" cy="42" r="20" fill="#2f7d3b"/><text class="num" x="40" y="50">6</text>
+      <text class="ttl" x="74" y="53">Improve</text>
+      <text class="who" x="74" y="80" fill="#2f7d3b">AI ENGINEER</text>
+      <text class="txt" x="24" y="122">A better agent version goes live only</text>
+      <text class="txt" x="24" y="148">if it scored better and a person says yes.</text>
+      <text class="st" x="24" y="176" fill="#b4236b">● IN PROGRESS</text>
+    </g>
+
+    <!-- ===== Flow arrows around the loop ===== -->
+    <path class="flow" d="M424,125 L500,125"/>
+    <path class="flow" d="M894,125 L970,125"/>
+    <path class="flow" d="M1170,224 L1170,600"/>
+    <path class="flow" d="M976,705 L900,705"/>
+    <path class="flow" d="M506,705 L430,705"/>
+    <path class="flow" d="M230,606 L230,230"/>
+    <text class="fl" x="250" y="400">the improved</text>
+    <text class="fl" x="250" y="420">agents handle</text>
+    <text class="fl" x="250" y="440">the next problem</text>
+
+    <!-- ===== The checkpoint in the middle ===== -->
+    <g transform="translate(430,307)">
+      <rect width="540" height="216" rx="18" fill="#1b2330"/>
+      <text x="270" y="50" text-anchor="middle" font-size="28" font-weight="800" fill="#fff">One checkpoint for every step</text>
+      <text x="270" y="78" text-anchor="middle" font-size="16" font-weight="700" fill="#f5b25c">AWS GOVERNANCE</text>
+      <text x="60" y="122" font-size="19" fill="#e8ecf2">✓  Rules decide what is allowed</text>
+      <text x="60" y="154" font-size="19" fill="#e8ecf2">✓  A person approves every change</text>
+      <text x="60" y="186" font-size="19" fill="#e8ecf2">✓  Everything is recorded, start to end</text>
+    </g>
+
+    <!-- ===== The one rule ===== -->
+    <g transform="translate(40,830)">
+      <rect width="1320" height="56" rx="12" fill="#eaf5ec" stroke="#2f7d3b" stroke-width="2"/>
+      <text x="660" y="36" text-anchor="middle" font-size="21" font-weight="700" fill="#1f5a28">The agents can get smarter on their own, but they can never give themselves more power.</text>
+    </g>
+  </svg>
+</section>
+</body>
+</html>

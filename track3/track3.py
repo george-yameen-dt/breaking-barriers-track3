@@ -5,6 +5,9 @@
   ./track3.sh pause            on AgentCore: withdraw the agent model and show its calls refused, then restore it
   (add --local to run, pause to run the agents on this laptop instead, as before Nov 2)
   ./track3.sh signal [--watch 60]   an open critical/high Arize Signal issue on bb26-hackathon withdraws the agent model
+  ./track3.sh register-prompt --agent network-agent --version v2    a prompt version becomes a candidate (audited)
+  ./track3.sh promote --agent network-agent --version v2 --role ai_engineer --experiment-run <id>
+                               an agent change goes live only through policies/promotion.cedar and a person's yes
   python3 tools/show_record.py --run-id <id>    read-only record viewer (the judges' live test)
   python3 tools/rebuild.py                      reprint every result from evidence/, no AWS
 
@@ -26,8 +29,9 @@ from pathlib import Path
 import boto3
 from botocore.config import Config
 
-from checkpoint import ARIZE_PROJECT, POLICIES, REGION, Checkpoint, Refused
+from checkpoint import ARIZE_PROJECT, POLICIES, PROMOTION_POLICIES, REGION, Checkpoint, Refused
 from incident import AGENT_MODEL, DIAGNOSE, JUDGE, JUDGE_MODEL, PROPOSE, parse_json, run_incident
+from promotion import PromptRegistry, blocking_issue_count, experiment_passed, promote
 from tools import arize_signal, check
 
 HERE = Path(__file__).parent
@@ -470,6 +474,64 @@ def cmd_adversarial(_args) -> None:
     print(f"run {run_id}")
 
 
+PROMPTS = HERE / "prompts"
+
+
+def cmd_register_prompt(args) -> None:
+    path = PROMPTS / args.agent / f"{args.version}.txt"
+    if not path.exists():
+        sys.exit(f"{path.relative_to(HERE)} does not exist")
+    run_id = new_run_id("registry")
+    declare(run_id, ["registry"], {"registry": f"prompt {args.agent}@{args.version} registered as a candidate; nothing goes live"},
+            extra_hashes={"candidate_sha256": file_sha(path)})
+    cp = Checkpoint(run_id, uuid.uuid4().hex, HERE / "evidence" / "runs" / run_id)
+    cp.record("run_start", declared_s3_last_modified=DECLARED_S3, purpose="register a prompt candidate", commit=code_commit())
+    item = PromptRegistry(cp.ddb).register(args.agent, args.version, path.read_text(), getpass.getuser())
+    cp.record("registered", agent=args.agent, version=args.version, sha256=item["sha256"], status=item["status"])
+    cp.record("run_end")
+    upload_run(run_id, cp.out_dir)
+    print(f"run {run_id}: {args.agent}@{args.version} is a candidate (sha256 {item['sha256'][:12]})")
+
+
+def approve_promotion(role: str, approve_as: str):
+    def ask(agent: str, version: str, evidence: dict):
+        if approve_as:
+            return approve_as, role, True, "approved with --approve-as (unattended test, no person at the keyboard)"
+        print(f"\n  The improvement loop wants to make {agent}@{version} live. Evidence: {json.dumps(evidence)}")
+        answer = input(f"  You are approving as {role}. Type yes to approve, anything else to decline: ").strip().lower()
+        return getpass.getuser(), role, answer == "yes", "typed at the keyboard"
+    return ask
+
+
+def cmd_promote(args) -> None:
+    candidate = PROMPTS / args.agent / f"{args.version}.txt"
+    exp_records = HERE / "evidence" / "runs" / args.experiment_run / "records.jsonl" if args.experiment_run else None
+    eval_passed = experiment_passed(check.load(exp_records), args.agent, args.version) if exp_records and exp_records.exists() else False
+    requested_by = f'Agent::"{args.agent}"' if args.as_agent else 'Loop::"improvement"'
+    unit = "promote" if args.role == "ai_engineer" and not args.as_agent else "promote_denied"
+    run_id = new_run_id("promote")
+    declare(run_id, [unit], {unit: (f"{args.agent}@{args.version} goes live only after an AI engineer approves and the evidence holds "
+                                    "(policy promote-needs-ai-engineer-and-evidence)") if unit == "promote" else
+                             f"promoting {args.agent}@{args.version} requested by {requested_by} with role {args.role} is denied by a named "
+                             "rule in policies/promotion.cedar, and nothing goes live"},
+            extra_hashes={"promotion_policies_sha256": file_sha(PROMOTION_POLICIES),
+                          **({"candidate_sha256": file_sha(candidate)} if candidate.exists() else {})})
+    cp = Checkpoint(run_id, uuid.uuid4().hex, HERE / "evidence" / "runs" / run_id)
+    cp.record("run_start", declared_s3_last_modified=DECLARED_S3, purpose=f"promote {args.agent}@{args.version}", commit=code_commit())
+    evidence = {"eval_passed": eval_passed, "open_blocking_issues": blocking_issue_count(), "experiment_run_id": args.experiment_run}
+    if evidence["open_blocking_issues"] < 0:
+        print("  Arize Signal could not be read (set ARIZE_API_KEY; it is in the team04/track3 secret). "
+              "The promotion policy treats that as a refusal.")
+    if not eval_passed:
+        print(f"  No passing experiment_result for {args.agent}@{args.version} in run '{args.experiment_run}'. "
+              "The promotion policy treats that as a refusal.")
+    rec = promote(cp, PromptRegistry(cp.ddb), args.agent, args.version, evidence, approve_promotion(args.role, args.approve_as), requested_by)
+    cp.record("run_end", outcome=rec["kind"])
+    upload_run(run_id, cp.out_dir)
+    print(f"run {run_id}: {rec['kind']}" + (f" ({', '.join(rec['policies'])})" if rec.get("policies") else ""))
+    report(run_id, [unit])
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -488,9 +550,19 @@ def main() -> None:
     s = sub.add_parser("signal")
     s.add_argument("--watch", type=int, default=0, help="check again every N seconds")
     s.add_argument("--dry-run", action="store_true", help="report blocking issues, change nothing")
+    rp = sub.add_parser("register-prompt")
+    rp.add_argument("--agent", required=True)
+    rp.add_argument("--version", required=True)
+    pr = sub.add_parser("promote")
+    pr.add_argument("--agent", required=True)
+    pr.add_argument("--version", required=True)
+    pr.add_argument("--role", required=True, choices=["ai_engineer", "network_operator"], help="the approver's role (recorded)")
+    pr.add_argument("--experiment-run", default="", help="the experiment run whose result is the evidence")
+    pr.add_argument("--approve-as", default="", help="unattended test only: approve in this name instead of asking")
+    pr.add_argument("--as-agent", action="store_true", help="live deny: the agent asks to promote itself")
     a = ap.parse_args()
     {"setup": cmd_setup, "run": cmd_run, "pause": cmd_pause, "freeze": cmd_freeze, "compare": cmd_compare,
-     "adversarial": cmd_adversarial, "signal": cmd_signal}[a.cmd](a)
+     "adversarial": cmd_adversarial, "signal": cmd_signal, "register-prompt": cmd_register_prompt, "promote": cmd_promote}[a.cmd](a)
 
 
 if __name__ == "__main__":
