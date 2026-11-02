@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Governed SDLC Loop</title>
+<style>
+  :root {
+    --ink: #1b2330; --muted: #5b6676; --line: #c9d1dc; --paper: #ffffff; --soft: #f5f7fa;
+    --dt: #0f8a8a; --dt-bg: #e8f6f6;
+    --aws: #c26a00; --aws-bg: #fdf3e6;
+    --arz: #4b46c8; --arz-bg: #efeefd;
+    --net: #46566b; --net-bg: #eef1f5;
+    --ppl: #2f7d3b; --ppl-bg: #eaf5ec;
+    --new: #b4236b;
+  }
+  @page { size: 11in 8.5in; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--paper); color: var(--ink);
+    font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page { width: 11in; height: 8.5in; padding: 0.35in 0.4in 0.3in; page-break-after: always; overflow: hidden; position: relative; }
+  .page:last-child { page-break-after: auto; }
+  header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid var(--ink); padding-bottom: 6px; margin-bottom: 10px; }
+  h1 { font-size: 20px; margin: 0; letter-spacing: -0.2px; }
+  h2 { font-size: 15px; margin: 14px 0 6px; }
+  .sub { font-size: 11px; color: var(--muted); margin-top: 3px; max-width: 7.2in; line-height: 1.35; }
+  .meta { font-size: 10px; color: var(--muted); text-align: right; line-height: 1.5; }
+  .legend { display: flex; gap: 12px; font-size: 9.5px; color: var(--muted); justify-content: flex-end; margin-top: 3px; }
+  .legend span { display: inline-flex; align-items: center; gap: 4px; }
+  .sw { width: 22px; height: 10px; border: 1.6px solid var(--ink); border-radius: 2px; display: inline-block; }
+  .sw.new { border-style: dashed; border-color: var(--new); }
+  .sw.later { border-style: dotted; border-color: #8a94a3; }
+  svg { width: 100%; height: auto; display: block; }
+  table { width: 100%; border-collapse: collapse; font-size: 10.5px; line-height: 1.35; }
+  th { text-align: left; background: var(--soft); font-weight: 600; border-bottom: 1.5px solid var(--ink); padding: 5px 7px; }
+  td { border-bottom: 1px solid var(--line); padding: 5px 7px; vertical-align: top; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .rule { margin-top: 10px; padding: 9px 12px; border-left: 4px solid var(--ppl); background: var(--ppl-bg); font-size: 12px; font-weight: 600; }
+  .note { font-size: 10px; color: var(--muted); margin-top: 6px; line-height: 1.4; }
+  .tag { display: inline-block; font-size: 9px; padding: 1px 5px; border-radius: 3px; font-weight: 600; }
+  .t-built { background: #e3efe5; color: #22622c; }
+  .t-p0 { background: #fde8e8; color: #9b1c1c; }
+  .t-p1 { background: #fbe7f1; color: var(--new); }
+  .t-p2 { background: #eceff3; color: #4a5565; }
+  footer { position: absolute; bottom: 0.18in; left: 0.4in; right: 0.4in; font-size: 9px; color: var(--muted); display: flex; justify-content: space-between; }
+  p { font-size: 11px; line-height: 1.45; margin: 4px 0; }
+</style>
+</head>
+<body>
+
+<!-- ============================== PAGE 1: target architecture ============================== -->
+<section class="page">
+  <header>
+    <div>
+      <h1>Governed SDLC loop for network agents: target architecture</h1>
+      <div class="sub">Dynatrace tells the agents what is true and later confirms whether the fix worked. Arize scores the agents and decides what they learn from. AWS enforces that every change, to a tower or to the swarm itself, is decided by policy, approved by the right person, and recorded.</div>
+    </div>
+    <div>
+      <div class="meta">Breaking Barriers 2026 · team04 · Track 3 primary<br>draft 2026-11-02 · branch governed-sdlc-loop</div>
+      <div class="legend">
+        <span><i class="sw"></i>built</span>
+        <span><i class="sw new"></i>phase 1 (today)</span>
+        <span><i class="sw later"></i>phase 2–3</span>
+      </div>
+    </div>
+  </header>
+
+  <svg viewBox="0 0 1400 812" role="img" aria-label="Target architecture: network, Dynatrace, AWS and Arize columns above an eight-stage loop">
+    <defs>
+      <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#1b2330"/>
+      </marker>
+      <style>
+        .grp { stroke-width: 1.4; }
+        .gh { font-size: 13px; font-weight: 700; letter-spacing: 0.6px; }
+        .bx { fill: #fff; stroke: #1b2330; stroke-width: 1.4; }
+        .bx.new { stroke: #b4236b; stroke-dasharray: 6 4; stroke-width: 1.6; }
+        .bx.later { stroke: #8a94a3; stroke-dasharray: 2 3; stroke-width: 1.6; }
+        .chip { fill: #f7f8fa; stroke: #1b2330; stroke-width: 1; }
+        .chip.new { stroke: #b4236b; stroke-dasharray: 5 3; fill: #fdf2f7; }
+        .t { font-size: 14px; font-weight: 650; fill: #1b2330; }
+        .d { font-size: 11.5px; fill: #3d4756; }
+        .c { font-size: 11px; fill: #1b2330; }
+        .badge circle { fill: #1b2330; }
+        .badge text { font-size: 11px; font-weight: 700; fill: #fff; text-anchor: middle; }
+        .wire { fill: none; stroke: #1b2330; stroke-width: 1.4; marker-end: url(#ah); }
+        .wl { font-size: 10.5px; fill: #1b2330; font-weight: 600; }
+        .wlbg { fill: #fff; }
+        .stage { stroke-width: 1.4; }
+        .sn { font-size: 13.5px; font-weight: 700; }
+        .sa { font-size: 10.5px; fill: #3d4756; }
+        .ss { font-size: 9.5px; font-weight: 700; }
+      </style>
+    </defs>
+
+    <!-- ===== Group frames ===== -->
+    <rect class="grp" x="16" y="34" width="232" height="306" rx="8" fill="#eef1f5" stroke="#46566b"/>
+    <text class="gh" x="30" y="56" fill="#46566b">NETWORK · SIMULATED</text>
+    <rect class="grp" x="16" y="352" width="232" height="190" rx="8" fill="#eaf5ec" stroke="#2f7d3b"/>
+    <text class="gh" x="30" y="374" fill="#2f7d3b">PEOPLE · WHO SAYS YES</text>
+    <rect class="grp" x="270" y="34" width="268" height="508" rx="8" fill="#e8f6f6" stroke="#0f8a8a"/>
+    <text class="gh" x="284" y="56" fill="#0f8a8a">DYNATRACE · LIVE TRUTH</text>
+    <rect class="grp" x="560" y="34" width="404" height="508" rx="8" fill="#fdf3e6" stroke="#c26a00"/>
+    <text class="gh" x="574" y="56" fill="#c26a00">AWS · GOVERNANCE + OFFICIAL RECORD</text>
+    <rect class="grp" x="986" y="34" width="398" height="508" rx="8" fill="#efeefd" stroke="#4b46c8"/>
+    <text class="gh" x="1000" y="56" fill="#4b46c8">ARIZE · AGENT EVALUATION</text>
+
+    <!-- ===== Network column ===== -->
+    <rect class="bx later" x="30" y="70" width="204" height="110" rx="6"/>
+    <text class="t" x="42" y="92">Digital twins</text>
+    <text class="d" x="42" y="112">Maveric · train + preview a fix</text>
+    <text class="d" x="42" y="128">(4 cells, power and tilt)</text>
+    <text class="d" x="42" y="146">Viavi RSG · operate</text>
+    <text class="d" x="42" y="164">hosted by the organisers</text>
+    <g class="badge"><circle cx="220" cy="84" r="9"/><text x="220" y="88">3</text></g>
+
+    <rect class="bx" x="30" y="196" width="204" height="130" rx="6"/>
+    <text class="t" x="42" y="218">Production (demo)</text>
+    <text class="d" x="42" y="238">mobile-env on a laptop</text>
+    <text class="d" x="42" y="254">7 towers · 15 moving phones</text>
+    <text class="d" x="42" y="270">radio model v1 (safe) /</text>
+    <text class="d" x="42" y="286">v2 (3x faster, drops 1 in 3)</text>
+    <text class="d" x="42" y="310">"video wins, voice breaks"</text>
+    <g class="badge"><circle cx="208" cy="210" r="9"/><text x="208" y="214">1</text></g>
+    <g class="badge"><circle cx="220" cy="230" r="9"/><text x="220" y="234">5</text></g>
+
+    <!-- People -->
+    <rect class="bx" x="30" y="388" width="204" height="44" rx="6"/>
+    <text class="t" x="42" y="406">Network operator</text>
+    <text class="d" x="42" y="423">approves network changes</text>
+    <g class="badge"><circle cx="220" cy="400" r="9"/><text x="220" y="404">4</text></g>
+    <rect class="bx new" x="30" y="440" width="204" height="44" rx="6"/>
+    <text class="t" x="42" y="458">AI engineer</text>
+    <text class="d" x="42" y="475">approves agent changes</text>
+    <g class="badge"><circle cx="220" cy="452" r="9"/><text x="220" y="456">8</text></g>
+    <rect class="bx" x="30" y="492" width="204" height="44" rx="6"/>
+    <text class="t" x="42" y="510">Risk owner</text>
+    <text class="d" x="42" y="527">owns the policies (code review)</text>
+
+    <!-- ===== Dynatrace column ===== -->
+    <rect class="bx" x="284" y="70" width="240" height="78" rx="6"/>
+    <text class="t" x="296" y="92">OpenPipeline → cell metrics</text>
+    <text class="d" x="296" y="112">log.cellnet.phones_dropped</text>
+    <text class="d" x="296" y="128">log.cellnet.median_rate · tower_load</text>
+    <g class="badge"><circle cx="510" cy="84" r="9"/><text x="510" y="88">1</text></g>
+
+    <rect class="bx" x="284" y="158" width="240" height="58" rx="6"/>
+    <text class="t" x="296" y="180">Smartscape topology</text>
+    <text class="d" x="296" y="200">network · towers · phones</text>
+
+    <rect class="bx" x="284" y="226" width="240" height="78" rx="6"/>
+    <text class="t" x="296" y="248">Davis problem + summary</text>
+    <text class="d" x="296" y="268">log patterns · anomaly detection</text>
+    <text class="d" x="296" y="286">deterministic, cheap in tokens</text>
+
+    <rect class="bx new" x="284" y="314" width="240" height="58" rx="6"/>
+    <text class="t" x="296" y="336">Workflow: problem → swarm</text>
+    <text class="d" x="296" y="356">WS-D · spike: AWS auth, no keys</text>
+    <g class="badge"><circle cx="510" cy="328" r="9"/><text x="510" y="332">2</text></g>
+
+    <rect class="bx new" x="284" y="382" width="240" height="78" rx="6"/>
+    <text class="t" x="296" y="404">Outcome queries → verify</text>
+    <text class="d" x="296" y="424">dropped = 0 for 3 min · problem closed</text>
+    <text class="d" x="296" y="440">rate above floor · WS-A</text>
+    <g class="badge"><circle cx="510" cy="396" r="9"/><text x="510" y="400">6</text></g>
+
+    <rect class="bx" x="284" y="470" width="240" height="62" rx="6"/>
+    <text class="t" x="296" y="492">Mirror of every record</text>
+    <text class="d" x="296" y="510">checkpoint logs by trace id</text>
+    <text class="d" x="296" y="525">+ promotions as change events (ph. 2)</text>
+
+    <!-- ===== AWS column ===== -->
+    <rect class="bx" x="574" y="70" width="376" height="96" rx="6"/>
+    <text class="t" x="586" y="92">AgentCore Runtime · track3_agents</text>
+    <text class="d" x="586" y="112">network agent → handoff → change agent (Bedrock gpt-oss)</text>
+    <rect class="chip new" x="586" y="122" width="352" height="34" rx="4"/>
+    <text class="c" x="596" y="137">Tupl advisors behind the checkpoint (WS-E)</text>
+    <text class="c" x="596" y="151">triage → scalability · performance · throughput</text>
+    <g class="badge"><circle cx="936" cy="84" r="9"/><text x="936" y="88">2</text></g>
+
+    <rect class="bx" x="574" y="176" width="376" height="166" rx="6"/>
+    <text class="t" x="586" y="198">Checkpoint · every model, tool and handoff call</text>
+    <rect class="chip" x="586" y="210" width="172" height="36" rx="4"/>
+    <text class="c" x="596" y="226" font-weight="650">Cedar · network</text>
+    <text class="c" x="596" y="240">track3.cedar (frozen)</text>
+    <rect class="chip new" x="766" y="210" width="172" height="36" rx="4"/>
+    <text class="c" x="776" y="226" font-weight="650">Cedar · promotion</text>
+    <text class="c" x="776" y="240">promotion.cedar (WS-B)</text>
+    <rect class="chip" x="586" y="252" width="172" height="36" rx="4"/>
+    <text class="c" x="596" y="268" font-weight="650">Bedrock Guardrails</text>
+    <text class="c" x="596" y="282">input + output</text>
+    <rect class="chip new" x="766" y="252" width="172" height="36" rx="4"/>
+    <text class="c" x="776" y="268" font-weight="650">Registry</text>
+    <text class="c" x="776" y="282">models + prompt versions</text>
+    <rect class="chip" x="586" y="294" width="172" height="36" rx="4"/>
+    <text class="c" x="596" y="310" font-weight="650">Approvals</text>
+    <text class="c" x="596" y="324">role + login, via DynamoDB</text>
+    <rect class="chip" x="766" y="294" width="172" height="36" rx="4"/>
+    <text class="c" x="776" y="310" font-weight="650">Audit record</text>
+    <text class="c" x="776" y="324">one run id · one trace id</text>
+    <g class="badge"><circle cx="922" cy="190" r="9"/><text x="922" y="194">4</text></g>
+    <g class="badge"><circle cx="940" cy="190" r="9"/><text x="940" y="194">8</text></g>
+
+    <rect class="bx" x="574" y="352" width="376" height="62" rx="6"/>
+    <text class="t" x="586" y="374">AgentCore Gateway + Policy (Cedar, ENFORCE)</text>
+    <text class="d" x="586" y="394">second wall on tools → Lambda → network order</text>
+    <g class="badge"><circle cx="936" cy="366" r="9"/><text x="936" y="370">5</text></g>
+
+    <rect class="bx" x="574" y="424" width="184" height="108" rx="6"/>
+    <text class="t" x="586" y="446">Official record</text>
+    <text class="d" x="586" y="466">CloudWatch Logs</text>
+    <text class="d" x="586" y="482">DynamoDB · S3 evidence</text>
+    <text class="d" x="586" y="502">judges' read-only</text>
+    <text class="d" x="586" y="518">live test reads here</text>
+
+    <rect class="bx later" x="766" y="424" width="184" height="108" rx="6"/>
+    <text class="t" x="778" y="446">SageMaker registry</text>
+    <text class="d" x="778" y="466">Track 1 NLM · RL policy</text>
+    <text class="d" x="778" y="482">arrive as candidates:</text>
+    <text class="d" x="778" y="498">PendingManualApproval</text>
+    <text class="d" x="778" y="518">slot only (phase 3)</text>
+    <g class="badge"><circle cx="936" cy="438" r="9"/><text x="936" y="442">8</text></g>
+
+    <!-- ===== Arize column ===== -->
+    <rect class="bx" x="1000" y="70" width="370" height="50" rx="6"/>
+    <text class="t" x="1012" y="92">Traces (project bb26-hackathon)</text>
+    <text class="d" x="1012" y="110">same trace id as the audit record</text>
+
+    <rect class="bx" x="1000" y="130" width="370" height="92" rx="6"/>
+    <text class="t" x="1012" y="152">Two scores on every incident trace</text>
+    <rect class="chip" x="1012" y="162" width="170" height="50" rx="4"/>
+    <text class="c" x="1020" y="178" font-weight="650">Judge score</text>
+    <text class="c" x="1020" y="192">Claude grades the answer</text>
+    <text class="c" x="1020" y="205">(other model family)</text>
+    <rect class="chip new" x="1190" y="162" width="170" height="50" rx="4"/>
+    <text class="c" x="1198" y="178" font-weight="650">Outcome score</text>
+    <text class="c" x="1198" y="192">code over Dynatrace data</text>
+    <text class="c" x="1198" y="205">did the network recover?</text>
+    <g class="badge"><circle cx="1356" cy="144" r="9"/><text x="1356" y="148">6</text></g>
+
+    <rect class="bx" x="1000" y="232" width="370" height="50" rx="6"/>
+    <text class="t" x="1012" y="254">Signal: critical / high issue → withdraw</text>
+    <text class="d" x="1012" y="272">the loop can already take a model out</text>
+
+    <rect class="bx new" x="1000" y="292" width="180" height="76" rx="6"/>
+    <text class="t" x="1012" y="314">Dataset</text>
+    <text class="d" x="1012" y="334">runs labelled by</text>
+    <text class="d" x="1012" y="350">judge vs outcome</text>
+    <g class="badge"><circle cx="1166" cy="306" r="9"/><text x="1166" y="310">7</text></g>
+    <rect class="bx new" x="1190" y="292" width="180" height="76" rx="6"/>
+    <text class="t" x="1202" y="314">Experiment</text>
+    <text class="d" x="1202" y="334">current vs candidate</text>
+    <text class="d" x="1202" y="350">on the frozen test set</text>
+    <g class="badge"><circle cx="1356" cy="306" r="9"/><text x="1356" y="310">7</text></g>
+
+    <rect class="bx new" x="1000" y="378" width="180" height="76" rx="6"/>
+    <text class="t" x="1012" y="400">Prompt optimization</text>
+    <text class="d" x="1012" y="420">harness fix →</text>
+    <text class="d" x="1012" y="436">candidate prompt</text>
+    <rect class="bx new" x="1190" y="378" width="180" height="76" rx="6"/>
+    <text class="t" x="1202" y="400">Track 1 export</text>
+    <text class="d" x="1202" y="420">model fix → chat JSONL</text>
+    <text class="d" x="1202" y="436">+ manifest (hash, purpose)</text>
+
+    <text class="d" x="1000" y="482">Arize decides what failed: the harness (prompt, tools,</text>
+    <text class="d" x="1000" y="498">handoff) or the model (domain knowledge). Each fix</text>
+    <text class="d" x="1000" y="514">becomes a candidate. LLM evaluators stay off the</text>
+    <text class="d" x="1000" y="530">gpt-oss family that runs the agents.</text>
+
+    <!-- ===== Wires ===== -->
+    <!-- telemetry: production -> OpenPipeline -->
+    <path class="wire" d="M234,250 L259,250 L259,109 L284,109"/>
+    <!-- trigger + facts: Dynatrace -> AgentCore -->
+    <path class="wire" d="M524,343 L549,343 L549,118 L574,118"/>
+    <rect class="wlbg" x="527" y="214" width="44" height="30"/>
+    <text class="wl" x="530" y="226">facts +</text>
+    <text class="wl" x="530" y="239">trigger</text>
+    <!-- network order: Gateway -> production, routed under the groups -->
+    <path class="wire" d="M574,400 L552,400 L552,556 L256,556 L256,300 L234,300"/>
+    <rect class="wlbg" x="330" y="548" width="140" height="15"/>
+    <text class="wl" x="334" y="560">approved order → network</text>
+    <!-- spans: checkpoint -> Arize traces -->
+    <path class="wire" d="M950,214 L972,214 L972,95 L1000,95"/>
+    <text class="wl" x="955" y="88">spans</text>
+    <!-- candidate + evidence: Arize -> checkpoint promotion -->
+    <path class="wire" d="M1000,330 L978,330 L978,232 L950,232"/>
+    <rect class="wlbg" x="955" y="276" width="44" height="30"/>
+    <text class="wl" x="957" y="288">cand. +</text>
+    <text class="wl" x="957" y="301">evidence</text>
+
+    <!-- ===== The loop band ===== -->
+    <rect x="16" y="572" width="1368" height="236" rx="8" fill="#f5f7fa" stroke="#1b2330" stroke-width="1.4"/>
+    <text class="gh" x="30" y="594" fill="#1b2330">THE LOOP · ONE TURN, EVERY STEP WITH A RUN ID</text>
+
+    <g id="stages">
+      <!-- 8 chevrons, w=162, step=168 -->
+      <g transform="translate(30,606)">
+        <polygon class="stage" points="0,0 150,0 162,32 150,64 0,64" fill="#e8f6f6" stroke="#0f8a8a"/>
+        <text class="sn" x="10" y="20">1 Sense</text><text class="sa" x="10" y="37">Dynatrace problem,</text><text class="sa" x="10" y="51">metrics, topology</text>
+        <text class="ss" x="112" y="20" fill="#22622c">BUILT</text>
+      </g>
+      <g transform="translate(198,606)">
+        <polygon class="stage" points="0,0 150,0 162,32 150,64 0,64 12,32" fill="#fdf3e6" stroke="#c26a00"/>
+        <text class="sn" x="18" y="20">2 Decide</text><text class="sa" x="18" y="37">swarm on AgentCore;</text><text class="sa" x="18" y="51">Workflow trigger (WS-D)</text>
+        <text class="ss" x="112" y="20" fill="#22622c">BUILT</text>
+      </g>
+      <g transform="translate(366,606)">
+        <polygon class="stage" points="0,0 150,0 162,32 150,64 0,64 12,32" fill="#eef1f5" stroke="#8a94a3" stroke-dasharray="2 3"/>
+        <text class="sn" x="18" y="20">3 Predict</text><text class="sa" x="18" y="37">twin preview of the</text><text class="sa" x="18" y="51">fix before asking</text>
+        <text class="ss" x="110" y="20" fill="#4a5565">PH. 2</text>
+      </g>
+      <g transform="translate(534,606)">
+        <polygon class="stage" points="0,0 150,0 162,32 150,64 0,64 12,32" fill="#eaf5ec" stroke="#2f7d3b"/>
+        <text class="sn" x="18" y="20">4 Approve</text><text class="sa" x="18" y="37">network operator</text><text class="sa" x="18" y="51">types yes</text>
+        <text class="ss" x="110" y="20" fill="#9b1c1c">PH. 0</text>
+      </g>
+      <g transform="translate(702,606)">
+        <polygon class="stage" points="0,0 150,0 162,32 150,64 0,64 12,32" fill="#fdf3e6" stroke="#c26a00"/>
+        <text class="sn" x="18" y="20">5 Act</text><text class="sa" x="18" y="37">Gateway + Policy</text><text class="sa" x="18" y="51">→ network order</text>
+        <text class="ss" x="112" y="20" fill="#22622c">BUILT</text>
+      </g>
+      <g transform="translate(870,606)">
+        <polygon class="stage" points="0,0 150,0 162,32 150,64 0,64 12,32" fill="#e8f6f6" stroke="#b4236b" stroke-dasharray="6 4"/>
+        <text class="sn" x="18" y="20">6 Verify</text><text class="sa" x="18" y="37">Dynatrace outcome</text><text class="sa" x="18" y="51">score (WS-A)</text>
+        <text class="ss" x="110" y="20" fill="#b4236b">PH. 1</text>
+      </g>
+      <g transform="translate(1038,606)">
+        <polygon class="stage" points="0,0 150,0 162,32 150,64 0,64 12,32" fill="#efeefd" stroke="#b4236b" stroke-dasharray="6 4"/>
+        <text class="sn" x="18" y="20">7 Learn</text><text class="sa" x="18" y="37">Arize dataset,</text><text class="sa" x="18" y="51">experiment (WS-C)</text>
+        <text class="ss" x="110" y="20" fill="#b4236b">PH. 1</text>
+      </g>
+      <g transform="translate(1206,606)">
+        <polygon class="stage" points="0,0 162,0 162,64 0,64 12,32" fill="#eaf5ec" stroke="#b4236b" stroke-dasharray="6 4"/>
+        <text class="sn" x="18" y="20">8 Promote</text><text class="sa" x="18" y="37">AI engineer, through</text><text class="sa" x="18" y="51">the checkpoint (WS-B)</text>
+        <text class="ss" x="118" y="20" fill="#b4236b">PH. 1</text>
+      </g>
+    </g>
+    <!-- return arrow: promote feeds the next turn -->
+    <path d="M1287,672 L1287,684 L111,684 L111,674" fill="none" stroke="#1b2330" stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#ah)"/>
+    <rect x="560" y="677" width="270" height="14" fill="#f5f7fa"/>
+    <text class="wl" x="566" y="688">the promoted agent works the next incident</text>
+
+    <!-- change classes -->
+    <g transform="translate(30,700)">
+      <rect width="330" height="96" rx="6" fill="#fff" stroke="#1b2330" stroke-width="1.2"/>
+      <text class="t" x="12" y="22">Network change</text>
+      <text class="d" x="12" y="42">e.g. roll back the radio model</text>
+      <text class="d" x="12" y="60"><tspan font-weight="650">Approver:</tspan> network operator</text>
+      <text class="d" x="12" y="78"><tspan font-weight="650">Enforced:</tspan> Cedar (track3) + Gateway Policy</text>
+    </g>
+    <g transform="translate(372,700)">
+      <rect width="330" height="96" rx="6" fill="#fff" stroke="#b4236b" stroke-width="1.4" stroke-dasharray="6 4"/>
+      <text class="t" x="12" y="22">Agent change</text>
+      <text class="d" x="12" y="42">e.g. new prompt, model or runtime version</text>
+      <text class="d" x="12" y="60"><tspan font-weight="650">Approver:</tspan> AI engineer</text>
+      <text class="d" x="12" y="78"><tspan font-weight="650">Needs:</tspan> eval ≥ declared target, no Signal issue</text>
+    </g>
+    <g transform="translate(714,700)">
+      <rect width="300" height="96" rx="6" fill="#fff" stroke="#1b2330" stroke-width="1.2"/>
+      <text class="t" x="12" y="22">Policy change</text>
+      <text class="d" x="12" y="42">e.g. edit a Cedar rule</text>
+      <text class="d" x="12" y="60"><tspan font-weight="650">Approver:</tspan> risk owner, code review</text>
+      <text class="d" x="12" y="78"><tspan font-weight="650">The loop has no path to it</tspan></text>
+    </g>
+    <g transform="translate(1026,700)">
+      <rect width="344" height="96" rx="6" fill="#eaf5ec" stroke="#2f7d3b" stroke-width="1.4"/>
+      <text class="t" x="14" y="26" fill="#1f5a28">Same door, different key.</text>
+      <text class="d" x="14" y="48">Self-improvement can change how the</text>
+      <text class="d" x="14" y="64">swarm thinks, never what it is allowed</text>
+      <text class="d" x="14" y="80">to do. Every change leaves one record.</text>
+    </g>
+  </svg>
+  <footer><span>Numbers on boxes match the loop stages below.</span><span>1 / 3</span></footer>
+</section>
+
+<!-- ============================== PAGE 2: governance and scoring ============================== -->
+<section class="page">
+  <header>
+    <div>
+      <h1>How a change is governed, and how a run is scored</h1>
+      <div class="sub">The operator trusts the swarm's network changes. The AI engineer trusts the swarm's own changes. Both go through one checkpoint, under different policies, and both leave the same kind of record.</div>
+    </div>
+    <div class="meta">team04 · Track 3 primary<br>draft 2026-11-02</div>
+  </header>
+
+  <h2>Three classes of change</h2>
+  <table>
+    <tr><th style="width:12%">Change</th><th style="width:20%">Example</th><th style="width:13%">Approver</th><th style="width:27%">Evidence in front of the approver</th><th>Enforced by</th></tr>
+    <tr><td><b>Network</b></td><td>Roll the radio model back to v1</td><td>Network operator</td><td>Dynatrace problem and cell metrics now; twin preview of the fix (phase 2)</td><td>Checkpoint Cedar <code>track3.cedar</code> (frozen); AgentCore Gateway Policy, ENFORCE</td></tr>
+    <tr><td><b>Agent</b></td><td>New prompt, new model, new runtime version</td><td>AI engineer</td><td>Experiment ≥ target declared before the run, on the frozen test set; no open critical or high Arize Signal issue</td><td>Checkpoint Cedar <code>promotion.cedar</code>; registry; then the AgentCore endpoint moves to the new version; SageMaker approval for trained models</td></tr>
+    <tr><td><b>Policy</b></td><td>Edit a Cedar rule</td><td>Risk owner</td><td>Code review</td><td>Git and the AgentCore Policy engine. The improvement loop has no path to a policy.</td></tr>
+  </table>
+  <div class="rule">Self-improvement can change how the swarm thinks, never what it is allowed to do. A promoted agent still needs the operator's yes for every network change.</div>
+
+  <div class="two">
+    <div>
+      <h2>Separation of duties (promotion.cedar)</h2>
+      <table>
+        <tr><th>Request</th><th style="width:22%">Decision</th></tr>
+        <tr><td>AI engineer approves a candidate that met its target, no blocking Signal issue</td><td><span class="tag t-built">Allow</span></td></tr>
+        <tr><td>An agent tries to promote anything, including itself</td><td><span class="tag t-p0">Deny</span></td></tr>
+        <tr><td>A network operator's approval on an agent change</td><td><span class="tag t-p0">Deny</span></td></tr>
+        <tr><td>A candidate below its declared target</td><td><span class="tag t-p0">Deny</span></td></tr>
+        <tr><td>Promotion while Signal has an open critical or high issue</td><td><span class="tag t-p0">Deny</span></td></tr>
+        <tr><td>Anything in the loop acting on a policy</td><td><span class="tag t-p0">Deny</span></td></tr>
+      </table>
+      <p class="note">Everyone signs in with the same AWS role in the event account, so the approver's role and login are recorded on each approval rather than enforced by IAM. Declared in GAPS.md.</p>
+    </div>
+    <div>
+      <h2>Two scores on every incident</h2>
+      <table>
+        <tr><th style="width:24%"></th><th>Judge score</th><th>Outcome score</th></tr>
+        <tr><td><b>Grades</b></td><td>what the agents said</td><td>what happened to the network</td></tr>
+        <tr><td><b>By</b></td><td>Claude (Bedrock), another model family than the agents</td><td>plain code over Dynatrace data, no model</td></tr>
+        <tr><td><b>Coverage-first intent (voice)</b></td><td>1–5 for cause, phones and safety</td><td>dropped phones 0 for 3 min within 6 min of the fix; problem closed; median rate above a floor</td></tr>
+        <tr><td><b>Throughput-first intent (video)</b></td><td>same</td><td>median rate weighted first</td></tr>
+      </table>
+      <h2>When they disagree, the run is labelled</h2>
+      <table>
+        <tr><th>Judge</th><th>Outcome</th><th>Label</th><th>Use</th></tr>
+        <tr><td>pass</td><td>pass</td><td>confirmed_good</td><td>Track 1 training example</td></tr>
+        <tr><td>pass</td><td>fail</td><td>sounded_right_failed</td><td>the most valuable hard case</td></tr>
+        <tr><td>fail</td><td>pass</td><td>judge_miscalibrated</td><td>fix the judge</td></tr>
+        <tr><td>fail</td><td>fail</td><td>confirmed_bad</td><td>negative example</td></tr>
+      </table>
+    </div>
+  </div>
+  <footer><span>The official record stays in AWS (CloudWatch, DynamoDB, S3); Dynatrace and Arize mirror it under the same trace id.</span><span>2 / 3</span></footer>
+</section>
+
+<!-- ============================== PAGE 3: why, phases, workstreams ============================== -->
+<section class="page">
+  <header>
+    <div>
+      <h1>Why it matters to operators, and how we get there by noon 3 Nov</h1>
+      <div class="sub">A use case is configuration: an intent, the KPIs that score it, the tools agents may use, and the policies that govern them. The loop itself does not change.</div>
+    </div>
+    <div class="meta">team04 · Track 3 primary<br>hand-in 12:00 PT 3 Nov · read-only 18:00 PT</div>
+  </header>
+
+  <div class="two">
+    <div>
+      <h2>Operator challenges this answers</h2>
+      <table>
+        <tr><th style="width:44%">Challenge</th><th>Answer</th></tr>
+        <tr><td>The right data in the operator's and the agent's hands</td><td>Dynatrace: problem summary, log patterns, anomaly detection, cell topology; deterministic and cheap in tokens</td></tr>
+        <tr><td>"Hope for the right change and response"</td><td>Predict with the twin before, verify with Dynatrace after</td></tr>
+        <tr><td>Optimize for app traffic: video-heavy vs real-time voice</td><td>The intent sets the outcome score's weights. Radio model v2 is a win for video and an outage for voice.</td></tr>
+        <tr><td>Impact depends on the business case and technical viability</td><td>Intent → outcome score; twin → viability</td></tr>
+        <tr><td>Autonomous networks need control and governance</td><td>One checkpoint, three classes of change, three approvers, one record</td></tr>
+      </table>
+      <h2>What we claim, and what we don't</h2>
+      <p>We claim: the loop is built and exercised end to end, with declared targets, a frozen test set, and graders independent of the agents.</p>
+      <p>We don't claim: a better Track 1 model (the training step is handed off), or a better real network (every network here is a simulator).</p>
+    </div>
+    <div>
+      <h2>Phases and workstreams</h2>
+      <table>
+        <tr><th style="width:34%">Workstream</th><th>Builds</th><th style="width:15%">When</th></tr>
+        <tr><td><b>Must have:</b> human-approved run + video</td><td>A person types yes on an incident run; demo recorded with commit and run id on screen; judging.json updated</td><td><span class="tag t-p0">by 10:00</span></td></tr>
+        <tr><td><b>WS-A</b> Outcome</td><td><code>outcome.py</code>, <code>verify</code> run on the incident's trace id, outcome score in Arize</td><td><span class="tag t-p1">phase 1</span></td></tr>
+        <tr><td><b>WS-B</b> Promotion gate</td><td><code>promotion.cedar</code>, prompt registry, <code>promote</code> with a live allow and live denies</td><td><span class="tag t-p1">phase 1</span></td></tr>
+        <tr><td><b>WS-C</b> Arize learn</td><td><code>dataset</code>, <code>experiment</code> (v1 vs v2 on the frozen state), Track 1 <code>export</code></td><td><span class="tag t-p1">phase 1</span></td></tr>
+        <tr><td><b>WS-D</b> Dynatrace control plane</td><td>Workflow starts the swarm when the problem opens; spike first on AWS auth without access keys</td><td><span class="tag t-p1">phase 1</span></td></tr>
+        <tr><td><b>WS-E</b> Tupl behind the checkpoint</td><td>The Tupl specialists as advisors to the change agent, through the checkpoint</td><td><span class="tag t-p1">phase 1</span></td></tr>
+        <tr><td>Twin preview</td><td>What-if on the laptop sim; Maveric once its <code>.env</code> arrives</td><td><span class="tag t-p2">phase 2</span></td></tr>
+        <tr><td>AgentCore promotion</td><td>Agents read the active prompt; runtime v2; move the endpoint</td><td><span class="tag t-p2">phase 2</span></td></tr>
+        <tr><td>NLM candidate</td><td>The organisers' TeleLogs NLM on SageMaker as a second candidate</td><td><span class="tag t-p2">phase 2</span></td></tr>
+        <tr><td>Roadmap</td><td>Track 1 fine-tune from the export; RL policy as a governed tool; a second intent on the same loop</td><td><span class="tag t-p2">phase 3</span></td></tr>
+      </table>
+      <p class="note">Built today: the AgentCore runtime, Gateway and Policy, the checkpoint with Cedar, Guardrails, registry and audit; the Claude judge; the Arize Signal gate; Dynatrace sensing; the Dynatrace app. Not built: anything on SageMaker; the Workflow trigger; a run approved by a person.</p>
+    </div>
+  </div>
+  <footer><span>Design: docs/superpowers/specs/2026-11-02-governed-sdlc-loop-design.md</span><span>3 / 3</span></footer>
+</section>
+
+</body>
+</html>
