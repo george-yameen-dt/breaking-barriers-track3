@@ -84,7 +84,7 @@ The agent's output goes to `agent.log`. Close the sim window or press Ctrl-C to 
 
 ## Undo
 
-- Delete the pipeline: `dtctl --context astroshop delete settings <pipeline objectId>`.
+- Delete the pipeline: `dtctl delete settings <pipeline objectId>`.
 - Restore routing from `openpipeline/routing.before.json`. It's the shared routing object, so keep other SEs' entries.
 
 ## Next

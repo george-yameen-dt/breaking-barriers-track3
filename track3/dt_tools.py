@@ -13,7 +13,8 @@ from pathlib import Path
 
 from contracts import SKILLS, sha256_of
 
-CONTEXT = os.environ.get("DTCTL_CONTEXT", "astroshop")
+# dtctl uses its current context (dtctl config use-context <name>); set DTCTL_CONTEXT to pin another one.
+DTCTL = ["dtctl", *(["--context", os.environ["DTCTL_CONTEXT"]] if os.environ.get("DTCTL_CONTEXT") else [])]
 DEFAULT_WINDOW_MIN = 120
 SKILL_DIRS = [Path(__file__).parent / "skills",
               *sorted((Path.home() / ".claude/plugins/cache/dynatrace-for-ai/dynatrace").glob("*/skills"), reverse=True)]
@@ -39,10 +40,11 @@ def parse_dql(dql: str) -> dict:
 
 
 def query(dql: str, traceparent: str = "", max_rows: int = 40) -> dict:
-    """One DQL query through dtctl. --agent fixes the JSON shape (dtctl prints another shape outside AI tools)."""
+    """One DQL query through dtctl. --agent fixes the JSON shape (dtctl prints another shape outside AI tools);
+    --max-field-chars 0 stops agent mode clipping long strings at 500 chars."""
     env = {**os.environ, **({"TRACEPARENT": traceparent} if traceparent else {})}
     try:
-        out = subprocess.run(["dtctl", "--context", CONTEXT, "query", dql, "-o", "json", "--agent"],
+        out = subprocess.run([*DTCTL, "query", dql, "-o", "json", "--agent", "--max-field-chars", "0"],
                              capture_output=True, text=True, timeout=60, env=env)
         reply = json.loads(out.stdout or "{}")
     except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as e:

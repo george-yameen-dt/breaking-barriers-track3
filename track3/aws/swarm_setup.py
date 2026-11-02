@@ -46,7 +46,7 @@ def existing() -> dict:
 
 def deploy(role: str, env: dict) -> str:
     name = f"track3_{role}"
-    args = dict(agentRuntimeArtifact={"codeConfiguration": {"code": CODE, "runtime": "PYTHON_3_12", "entryPoint": ["main.py"]}},
+    args = dict(agentRuntimeArtifact={"codeConfiguration": {"code": CODE, "runtime": "PYTHON_3_12", "entryPoint": ["opentelemetry-instrument", "main.py"]}},
                 roleArn=ROLE_ARN, networkConfiguration={"networkMode": "PUBLIC"}, protocolConfiguration={"serverProtocol": "HTTP"},
                 environmentVariables={"AGENT_ROLE": role, **env},
                 lifecycleConfiguration={"idleRuntimeSessionTimeout": 900, "maxLifetime": 3600},

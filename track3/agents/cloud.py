@@ -17,12 +17,13 @@ import boto3
 from botocore.config import Config
 
 import checkpoint
+import telemetry
 from adapters.replay import ReplayNetwork
 from agents.governance import POLICIES, AgentFailed, SwarmCheckpoint, run_agent
 from agents.orchestrator import Run, run_incident
 from agents.risk import assess_proposals
 from agents.specialist import MODELS, investigate
-from checkpoint import Refused
+from checkpoint import MAX_SPAN_TEXT, Refused
 from contracts import CRITIC, ORCHESTRATOR, SPECIALISTS
 
 REGION = "us-east-2"
@@ -39,36 +40,44 @@ class RemoteAgents:
     """How the orchestrator reaches the other four agents: a Cedar hand-off, then their own runtime."""
 
     def __init__(self, payload: dict):
-        self.base = {k: payload.get(k) for k in ("run_id", "trace_id", "fault", "taken_at", "declared")}
+        # parent_span_id: the orchestrator's root span, so each agent's spans hang under it in the run's one trace
+        self.base = {k: payload.get(k) for k in ("run_id", "trace_id", "fault", "taken_at", "declared", "parent_span_id")}
         self.client = boto3.client("bedrock-agentcore", region_name=REGION,
                                    config=Config(read_timeout=600, connect_timeout=15, retries={"total_max_attempts": 1}))
 
-    def _invoke(self, role: str, body: dict) -> dict:
+    def _invoke(self, cp, role: str, body: dict) -> dict:
+        """One call to another agent's runtime, in a CHAIN span; that runtime's spans hang under this one. The trace
+        context goes in the standard W3C traceparent header; the span id also goes in the payload as a fallback."""
         arn = _runtime_arn(role)
         if not arn:
             raise AgentFailed(f"no AgentCore runtime is configured for {role}")
-        r = self.client.invoke_agent_runtime(
-            agentRuntimeArn=arn, qualifier="DEFAULT", runtimeSessionId=f"{self.base['run_id']}-{role}-{uuid.uuid4().hex[:8]}",
-            contentType="application/json", accept="application/json", payload=json.dumps({**self.base, **body}).encode())
-        out = json.loads(r["response"].read().decode() or "{}")
-        if out.get("error"):
-            raise (Refused if out.get("refused") else AgentFailed)(out["error"])
-        return out
+        with cp.span(f"invoke {role}", "CHAIN", **{"track3.who": role, "track3.runtime_arn": arn,
+                                                   "input.value": json.dumps(body, default=str)[:MAX_SPAN_TEXT]}) as s:
+            parent = format(s.get_span_context().span_id, "016x")
+            r = self.client.invoke_agent_runtime(
+                agentRuntimeArn=arn, qualifier="DEFAULT", runtimeSessionId=f"{self.base['run_id']}-{role}-{uuid.uuid4().hex[:8]}",
+                contentType="application/json", accept="application/json", traceParent=telemetry.traceparent(s),
+                payload=json.dumps({**self.base, "parent_span_id": parent, **body}).encode())
+            out = json.loads(r["response"].read().decode() or "{}")
+            s.set_attribute("output.value", json.dumps(out, default=str)[:MAX_SPAN_TEXT])
+            if out.get("error"):
+                raise (Refused if out.get("refused") else AgentFailed)(out["error"])
+            return out
 
     def specialist(self, run, role: str) -> dict:
         run.cp.handoff(ORCHESTRATOR, role, run.alert)
-        return self._invoke(role, {"mode": "specialist", "role": role,
+        return self._invoke(run.cp, role, {"mode": "specialist", "role": role,
                                    "snapshot_sha256": run.net.snapshot["snapshot_sha256"]})["report"]
 
     def critic(self, run) -> dict:
         run.cp.handoff(ORCHESTRATOR, CRITIC, f"{len(run.proposals)} proposals from {len(run.reports)} specialists")
-        out = self._invoke(CRITIC, {"mode": "critic", "reports": run.reports, "proposals": run.proposals, "checks": run.checks})
+        out = self._invoke(run.cp, CRITIC, {"mode": "critic", "reports": run.reports, "proposals": run.proposals, "checks": run.checks})
         run.critic_checked.update(out.get("critic_checked", []))
         return out["assessments"]
 
     def ping(self, run, role: str) -> dict:
         run.cp.handoff(ORCHESTRATOR, role, "are you available?")
-        return self._invoke(role, {"mode": "specialist", "role": role, "ping": True})
+        return self._invoke(run.cp, role, {"mode": "specialist", "role": role, "ping": True})
 
 
 def wait_for_person(cp):
@@ -99,7 +108,16 @@ def handle(payload: dict) -> dict:
         checkpoint.ARIZE_KEY_FILE = Path("/tmp/no-arize-key-for-dev-runs")
     mode, run_id = payload["mode"], payload["run_id"]
     role = payload.get("role", ROLE)
-    cp = SwarmCheckpoint(run_id, payload["trace_id"], Path("/tmp/track3") / run_id / role)
+    cp = SwarmCheckpoint(run_id, payload["trace_id"], Path("/tmp/track3") / run_id / role, payload.get("parent_span_id", ""))
+    with cp.active():
+        try:
+            return _handle(cp, mode, role, payload)
+        finally:
+            cp.close()  # every runtime ends its own root span; only the orchestrator writes run_end
+
+
+def _handle(cp, mode: str, role: str, payload: dict) -> dict:
+    run_id = cp.run_id
     net = ReplayNetwork(payload["fault"], run_id, payload["taken_at"])
     try:
         if mode == "specialist":
@@ -122,8 +140,9 @@ def handle(payload: dict) -> dict:
                   operator=payload.get("operator", ""), runtimes={r: _runtime_arn(r) for r in (*SPECIALISTS, CRITIC)})
         outcome = "error"
         try:
+            root_span_id = format(cp.root.get_span_context().span_id, "016x")
             result = run_incident(cp, net, wait_for_person(cp), pause_operator=payload.get("operator", "operator") if payload.get("pause") else "",
-                                  remote=RemoteAgents(payload))
+                                  remote=RemoteAgents({**payload, "parent_span_id": root_span_id}))
             outcome = result.get("outcome")
             return {"run_id": run_id, "outcome": outcome}
         finally:

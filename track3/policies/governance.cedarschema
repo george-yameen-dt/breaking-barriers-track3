@@ -1,0 +1,16 @@
+// Schema for governance.cedar.
+
+entity Person;
+entity Agent;
+entity Policy;
+entity Guardrail;
+
+action activate_policy appliesTo {
+  principal: [Person, Agent], resource: Policy,
+  context: { human_approved: Bool, approver_role: String, checks_passed: Bool, hash_matches: Bool }
+};
+
+action activate_guardrail appliesTo {
+  principal: [Person, Agent], resource: Guardrail,
+  context: { human_approved: Bool, approver_role: String, checks_passed: Bool, hash_matches: Bool }
+};

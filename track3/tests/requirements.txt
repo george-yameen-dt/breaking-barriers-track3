@@ -3,3 +3,5 @@ cedarpy
 boto3
 opentelemetry-sdk
 opentelemetry-exporter-otlp-proto-http
+strands-agents==1.63.0
+openinference-instrumentation-strands-agents==0.1.14

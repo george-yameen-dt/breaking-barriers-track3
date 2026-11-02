@@ -11,6 +11,7 @@
 8. A rule grader and an independent judge from another model family grade the run.
 """
 
+import contextvars
 import json
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
@@ -141,7 +142,8 @@ def pause_capacity(run, operator: str, say) -> bool:
 def gather_reports(run, say) -> None:
     """Step 2: the three specialists at the same time. A refused or failed one is recorded as degraded."""
     with ThreadPoolExecutor(max_workers=len(SPECIALISTS)) as pool:
-        futures = {role: pool.submit(run.call_specialist, run, role) for role in SPECIALISTS}
+        # Each thread gets a copy of this context, so its spans (model calls, hand-offs) stay in the run's trace.
+        futures = {role: pool.submit(contextvars.copy_context().run, run.call_specialist, run, role) for role in SPECIALISTS}
         for role, future in futures.items():
             try:
                 rep = run.reports[role] = future.result()

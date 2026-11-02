@@ -68,8 +68,7 @@ drops about a third of them. For video that looks like a win; for voice it is an
   record (role + login), not from IAM. This is declared as a gap.
 - AgentCore Runtime `track3_agents` packages `checkpoint.py` and `incident.py`. Changing them in the cloud
   needs `agentcore/build.sh` and a new runtime version. Local (`--local`) runs need no deploy.
-- Dynatrace reads use `dtctl --context astroshop` (tenant yqs73977). Laptops without that context cannot
-  read Dynatrace.
+- Dynatrace reads use dtctl's current context (`DTCTL_CONTEXT` pins another); it must point at tenant yqs73977.
 - Synthetic data only.
 
 ## 4. Architecture
@@ -205,3 +204,43 @@ intent (video vs voice) on the same loop.
 - Who owns which workstream?
 - The hosted Maveric twin `.env` (twin URL, bearer token, team code). Is there a separate Bridge kit for the 0.73 target?
 - Is the TM Forum autonomous-network language worth using in the pitch?
+
+## 12. Decision (2026-11-02): an autonomous network, a human-approved governance layer
+
+A judge told the team they are looking for an **autonomous network**, and that human approval belongs to **changes
+to the governance layer** (for the evidence chain). This replaces the guide's "a person approves any change of
+state" for network changes. The guide line is quoted, and this decision cited, in README and GAPS.md.
+
+**The rule.** Agents change the network on their own, but only inside an envelope that Cedar enforces. People
+change the envelope. Every autonomous network change records the hash of the policy that allowed it, and that
+policy's activation record names the risk owner who approved it, so every change traces back to a person's `yes`.
+
+| Change | Who decides | Enforced by |
+|---|---|---|
+| Network change inside the envelope | The orchestrator, autonomously; then verify, auto-revert if verification fails | Active swarm policy (Cedar), risk checks in code |
+| Network change outside the envelope | Denied. The orchestrator may file a governance change request; it can never activate one | Active swarm policy; `governance.cedar` |
+| Cedar policy set (swarm) | Risk owner, after validation, invariants and an impact preview, bound to the candidate's sha256 | `policies/governance.cedar` |
+| Guardrail version | Risk owner, after the adversarial set is still blocked and the normal set still passes | `policies/governance.cedar` |
+| Agent change (prompt, model) | AI engineer (unchanged, §5) | `policies/promotion.cedar` |
+| `governance.cedar` itself | Code review in Git only; the flow cannot amend its own rules | `governance.cedar` forbids it |
+
+**The envelope** (`policies/swarm-autonomous.cedar`, schema `swarm-autonomous.cedarschema`): the orchestrator only; the code risk
+checks passed; power change of at most 3 dB, tilt change of at most 2°, or switching a cell back on; at most one
+autonomous change per run; the existing forbids stay (power 30–46 dBm, tilt 0–10°, protected cell A, 15-minute
+stabilization). Revert stays: only after verification failed, only to the exact old value.
+
+**Policy versions.** Every activated policy is stored by hash (`policies/versions/<sha256>.cedar`, S3
+`governance/policies/<sha256>.cedar`); the registry table holds the active pointer. Runtimes load the active
+version at run start and refuse one whose hash does not match. Rebuild resolves each run's policy by the hash in its
+declaration, so old evidence still rebuilds after a policy changes.
+
+**Dynatrace reads are audited in the records.** Each dtctl call is a Cedar decision and a `tool_call` record (DQL,
+its sha256, result sha256) under the run's trace id. That is enough; no pairing with Dynatrace's own query log.
+
+**The decision tree is the record.** Every branch is its own Cedar action (`policies/swarm-autonomous.cedar`):
+propose → select_proposal → apply_cell_configuration → verify → revert or hold, or request_governance_change when the
+fix is outside the envelope. Each context carries `proposal_id`, so one run's decision records rebuild the tree,
+with the `@id` of the rule that decided each node. The demo shows the network change happen and then walks that tree.
+
+**Not in scope** (declared in GAPS.md): the AgentCore Gateway Cedar for the swarm tools; one IAM role per agent;
+the approver's role enforced by IAM (still a flag plus a typed `yes`).
