@@ -39,7 +39,7 @@ class RemoteAgents:
     """How the orchestrator reaches the other four agents: a Cedar hand-off, then their own runtime."""
 
     def __init__(self, payload: dict):
-        self.base = {k: payload[k] for k in ("run_id", "trace_id", "fault", "taken_at")}
+        self.base = {k: payload.get(k) for k in ("run_id", "trace_id", "fault", "taken_at", "declared")}
         self.client = boto3.client("bedrock-agentcore", region_name=REGION,
                                    config=Config(read_timeout=600, connect_timeout=15, retries={"total_max_attempts": 1}))
 
@@ -93,9 +93,10 @@ def _sha(p: Path) -> str:
 
 
 def handle(payload: dict) -> dict:
-    for k in ("DT_PLATFORM_TOKEN", "DT_TRACES_TOKEN", "ARIZE_API_KEY"):  # dev runs: no operator-view mirrors
-        os.environ.pop(k, None)
-    checkpoint.ARIZE_KEY_FILE = Path("/tmp/no-arize-key-for-dev-runs")
+    if not payload.get("declared"):  # dev runs: no operator-view mirrors; declared runs copy every record to Dynatrace
+        for k in ("DT_PLATFORM_TOKEN", "DT_TRACES_TOKEN", "ARIZE_API_KEY"):
+            os.environ.pop(k, None)
+        checkpoint.ARIZE_KEY_FILE = Path("/tmp/no-arize-key-for-dev-runs")
     mode, run_id = payload["mode"], payload["run_id"]
     role = payload.get("role", ROLE)
     cp = SwarmCheckpoint(run_id, payload["trace_id"], Path("/tmp/track3") / run_id / role)
@@ -117,6 +118,7 @@ def handle(payload: dict) -> dict:
         # mode "swarm": this runtime is the orchestrator
         cp.record("run_start", mode="swarm", where="AgentCore: one runtime per agent", fault=payload["fault"],
                   fault_sha256=_sha(net.fault_path), policies_sha256=_sha(POLICIES), commit=payload.get("commit", ""),
+                  declared=bool(payload.get("declared")), declared_s3_last_modified=payload.get("declared_s3", ""),
                   operator=payload.get("operator", ""), runtimes={r: _runtime_arn(r) for r in (*SPECIALISTS, CRITIC)})
         outcome = "error"
         try:

@@ -34,7 +34,7 @@ def main() -> int:
         if decl.get("frozen_state_sha256") and sha(ROOT / "scenarios" / "frozen-state.json") != decl["frozen_state_sha256"]:
             print(f"{run_id}: frozen state changed since it was declared")
             bad += 1
-        if sha(ROOT / "policies" / "track3.cedar") != decl["policies_sha256"]:
+        if sha(ROOT / decl.get("policies_path", "policies/track3.cedar")) != decl["policies_sha256"]:
             print(f"{run_id}: policies changed since it was declared")
             bad += 1
         recs = load(records)
