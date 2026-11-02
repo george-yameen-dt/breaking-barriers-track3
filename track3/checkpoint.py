@@ -9,20 +9,20 @@ JSONL file (for the offline rebuild). Dynatrace gets a copy of each record as th
 import hashlib
 import json
 import os
-import re
 import time
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
 import boto3
-import cedarpy
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
+
+from policy import PolicySet
 
 REGION = "us-east-2"
 LOG_GROUP = "/bb26/team04/track3"
@@ -31,7 +31,8 @@ REGISTRY_TABLE = "bb26-team04-track3-registry"
 GUARDRAIL_ID = "lr4zff1274hc"
 GUARDRAIL_VERSION = "DRAFT"
 HERE = Path(__file__).parent
-POLICIES = HERE / "policies" / "track3.cedar"
+POLICIES = HERE / "policies" / "track3.cedar"  # network changes; frozen, its hash is in every declared run
+PROMOTION_POLICIES = HERE / "policies" / "promotion.cedar"  # changes to the agents themselves
 DT_LOGS = "https://yqs73977.sprint.apps.dynatracelabs.com/platform/classic/environment-api/v2/logs/ingest"
 # Spans go to the team's Arize space (agentic-aeric), where Arize Signal reviews the project and files issues.
 # On AgentCore both ARIZE_SPACE_ID and ARIZE_API_KEY come from the team04/track3 secret.
@@ -91,9 +92,8 @@ class Checkpoint:
         self.runtime = boto3.client("bedrock-runtime", region_name=REGION)
         self.provider, self.tracer = make_tracer(trace_id)
         self.root = self.tracer.start_span(f"track3 {run_id}", attributes={"openinference.span.kind": "AGENT", "track3.run_id": run_id})
-        self.policies = POLICIES.read_text()
-        # Cedar names policies policy0, policy1... in file order; map those to our @id names.
-        self.policy_ids = re.findall(r'@id\("([^"]+)"\)', self.policies)
+        self.policy_sets = {"network": PolicySet(POLICIES), "promotion": PolicySet(PROMOTION_POLICIES)}
+        self.policies, self.policy_ids = self.policy_sets["network"].text, self.policy_sets["network"].ids
         try:
             self.logs.create_log_stream(logGroupName=LOG_GROUP, logStreamName=run_id)
         except self.logs.exceptions.ResourceAlreadyExistsException:
@@ -151,22 +151,18 @@ class Checkpoint:
             pass
 
     # ---- policy ------------------------------------------------------------------------------
-    def evaluate(self, principal: str, action: str, resource: str, context: dict, attrs: dict | None = None) -> tuple:
+    def evaluate(self, principal: str, action: str, resource: str, context: dict, attrs: dict | None = None,
+                 policy_set: str = "network") -> tuple:
         """Ask Cedar without writing a record (used to check whether an approval would help)."""
-        rtype, rid = resource.split("::", 1)
-        entities = [{"uid": {"__entity": {"type": rtype, "id": rid.strip('"')}}, "attrs": attrs or {}, "parents": []}]
-        result = cedarpy.is_authorized({"principal": principal, "action": f'Action::"{action}"', "resource": resource,
-                                        "context": context}, self.policies, entities)
-        decision = "Allow" if result.decision == cedarpy.Decision.Allow else "Deny"
-        reasons = [self.policy_ids[int(r[6:])] if r.startswith("policy") and r[6:].isdigit() and int(r[6:]) < len(self.policy_ids) else r
-                   for r in result.diagnostics.reasons]
-        why = reasons or (["no policy permits this call"] if decision == "Deny" else [])
-        return decision, why, [str(e) for e in result.diagnostics.errors]
+        return self.policy_sets[policy_set].evaluate(principal, action, resource, context, attrs)
 
-    def decide(self, principal: str, action: str, resource: str, context: dict, attrs: dict | None = None) -> dict:
-        decision, why, errors = self.evaluate(principal, action, resource, context, attrs)
+    def decide(self, principal: str, action: str, resource: str, context: dict, attrs: dict | None = None,
+               policy_set: str = "network") -> dict:
+        decision, why, errors = self.evaluate(principal, action, resource, context, attrs, policy_set)
+        # Network decisions keep their original record shape; other sets say which one decided.
+        extra = {} if policy_set == "network" else {"policy_set": policy_set}
         return self.record("decision", principal=principal, action=action, resource=resource, context=context,
-                           resource_attrs=attrs or {}, decision=decision, policies=why, errors=errors)
+                           resource_attrs=attrs or {}, decision=decision, policies=why, errors=errors, **extra)
 
     # ---- guardrails --------------------------------------------------------------------------
     def guard(self, source: str, text: str, who: str) -> str:

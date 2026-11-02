@@ -1,0 +1,5 @@
+pytest
+cedarpy
+boto3
+opentelemetry-sdk
+opentelemetry-exporter-otlp-proto-http
