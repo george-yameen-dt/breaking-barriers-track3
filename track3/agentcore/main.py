@@ -92,6 +92,9 @@ def pause(cp: Checkpoint, payload: dict) -> dict:
 @app.entrypoint
 def invoke(payload: dict) -> dict:
     mode = payload.get("mode", "incident")
+    if mode in ("swarm", "specialist", "critic"):  # the five-agent swarm: one runtime per agent (agents/cloud.py)
+        from agents import cloud
+        return cloud.handle(payload)
     run_id, trace_id = payload["run_id"], payload["trace_id"]
     cp = Checkpoint(run_id, trace_id, Path("/tmp/track3") / run_id)
     cp.record("run_start", declared_s3_last_modified=payload.get("declared_s3", ""), commit=payload.get("commit", ""),
