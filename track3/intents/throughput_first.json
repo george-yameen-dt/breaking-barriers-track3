@@ -1,0 +1,10 @@
+{
+  "name": "throughput_first",
+  "about": "Video-heavy traffic (Reels-like): the served phones' data rate matters most.",
+  "clean_minutes": 3,
+  "restore_within_minutes": 6,
+  "close_within_minutes": 10,
+  "median_rate_floor": 2.0,
+  "weights": {"restored": 0.2, "problem_closed": 0.2, "no_regression": 0.6},
+  "required": ["no_regression"]
+}
