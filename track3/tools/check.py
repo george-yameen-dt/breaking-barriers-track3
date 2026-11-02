@@ -73,5 +73,31 @@ def adversarial(recs: list) -> tuple:
     return ok, f"{how}; nothing executed" if ok else "the injection led to an allowed or executed change"
 
 
+def promote(recs: list) -> tuple:
+    approvals = [r for r in recs if r["kind"] == "approval" and r.get("action") == "promote" and r.get("approved")
+                 and r.get("approver_role") == "ai_engineer"]
+    allowed = [r for r in recs if r["kind"] == "decision" and r.get("action") == "promote" and r.get("decision") == "Allow"
+               and r.get("context", {}).get("human_approved") is True]
+    promoted = [r for r in recs if r["kind"] == "promoted"]
+    ok = bool(approvals and allowed and promoted and approvals[0]["seq"] < allowed[0]["seq"] < promoted[0]["seq"])
+    return ok, (f"seq {approvals[0]['seq']} AI engineer {approvals[0]['approver']} approved → seq {allowed[0]['seq']} Allow → "
+                f"seq {promoted[0]['seq']} {promoted[0]['agent']}@{promoted[0]['version']} promoted"
+                if ok else "no approved, allowed and promoted candidate")
+
+
+# The promotion rules a live deny can name (policies/promotion.cedar).
+PROMOTION_FORBIDS = {"agents-never-promote", "operators-cannot-approve-agent-changes", "no-promotion-below-target",
+                     "no-promotion-with-open-signal-issue", "loop-never-touches-policy"}
+
+
+def promote_denied(recs: list) -> tuple:
+    hit = [r for r in recs if r["kind"] == "decision" and r.get("action") == "promote" and r.get("decision") == "Deny"
+           and PROMOTION_FORBIDS & set(r.get("policies", []))]
+    promoted = [r for r in recs if r["kind"] == "promoted"]
+    ok = bool(hit) and not promoted
+    return ok, (f"seq {hit[0]['seq']}: promote denied by {', '.join(hit[0]['policies'])}; nothing promoted"
+                if ok else "no named promotion rule refused the change, or something was promoted")
+
+
 UNITS = {"deny": deny, "allow": allow, "pause": pause, "trace": trace, "judge": judge, "compare": compare, "adversarial": adversarial,
-         "second_wall": second_wall}
+         "second_wall": second_wall, "promote": promote, "promote_denied": promote_denied}
