@@ -47,5 +47,12 @@
     "allow": "pass",
     "trace": "pass",
     "judge": "pass"
+  },
+  "2026-11-02T12-33-track3-swarm-01": {
+    "swarm_deny": "pass",
+    "swarm_allow": "pass",
+    "swarm_stabilization": "pass",
+    "swarm_trace": "pass",
+    "judge": "pass"
   }
 }
