@@ -4,19 +4,17 @@ The deadline is **12:00, Nov 3 (Seattle time).** After that the account is read-
 
 ## 1. Before you record (about 15 minutes)
 
-1. Start the network in its own terminal:
+1. Do the incident run yourself on AgentCore and type `yes` when it asks. It breaks tower C on purpose; the five agents
+   find it, a bad change is denied, you approve the fix and Cedar allows it:
    ```
-   cd ../practice && ./demo.sh --story
+   ./swarm.sh run --cloud --declare --fault outage-C
    ```
-2. Do the incident run yourself and type `yes` when it asks:
+   Note the run id and commit it prints; every check it prints should say PASS.
+2. The pause: Capacity answers once, its model is withdrawn, its next call is refused and the run goes on without it:
    ```
-   ./track3.sh run
+   ./swarm.sh run --cloud --declare --fault outage-C --pause
    ```
-   Note the run id it prints.
-3. Withdraw a model and watch its calls get refused:
-   ```
-   ./track3.sh pause
-   ```
+3. Put both run ids in `judging.json` (`run_ids` and `reported_results`) and copy it to S3 `judging/`.
 4. Reprint every result, with no AWS needed:
    ```
    python3 tools/rebuild.py
@@ -25,23 +23,25 @@ The deadline is **12:00, Nov 3 (Seattle time).** After that the account is read-
 
 ## 2. The 5-minute video (record before 12:00 Nov 3)
 
-Keep the commit hash and a run id on screen the whole time. `./track3.sh run` prints both.
+Keep the commit hash and a run id on screen the whole time. `./swarm.sh run --cloud --declare` prints both.
 
 | Time | Show | Say |
 |---|---|---|
-| 0:00–0:30 | The simulator window and the Dynatrace app | "A new radio model just went live and is cutting phones off. Dynatrace caught it." |
-| 0:30–1:30 | The terminal running `./track3.sh run` | "Two AI agents work the problem: one diagnoses it, one proposes fixes. Every call goes through one checkpoint." |
-| 1:30–2:15 | The deny line, then your `yes` | "Restart all towers: denied by policy. Roll back: allowed only because I approved it." |
-| 2:15–2:45 | The sim window, phones going green | "The rollback ran and the phones are back." |
-| 2:45–3:30 | `tools/show_record.py --run-id … --trace` | "One trace id, every step, read straight from CloudWatch. That's the audit trail." |
-| 3:30–4:15 | `./track3.sh pause` | "Withdraw a model and its calls are refused, with a decision record." |
-| 4:15–5:00 | The judge line, and `tools/rebuild.py` | "A different AI family grades the agents. Every result rebuilds from our evidence." |
+| 0:00–0:30 | The fault file `scenarios/faults/outage-C.json` | "We break the network on purpose: tower C stops transmitting and phones lose service." |
+| 0:30–1:30 | The terminal running `./swarm.sh run --cloud --declare --fault outage-C`, and the AgentCore console with the 5 `track3_*` runtimes | "Five agents, each in its own AgentCore runtime. The orchestrator hands the same snapshot to three specialists at once; none sees the others' answers. Every model call, hand-off and tool call goes through one checkpoint." |
+| 1:30–2:15 | The risk lines, the deny line, then your `yes` | "Code checks every idea and the risk critic reviews it. Tower B at 50 dBm: denied by policy. Switch C back on: allowed only after I approved that exact proposal, by its hash." |
+| 2:15–2:45 | The stabilization line | "A second change to the same tower right away is denied: the network needs time to settle." |
+| 2:45–3:30 | `tools/show_record.py --run-id … --trace` | "One trace id, every step across five runtimes, read straight from CloudWatch. That's the audit trail." |
+| 3:30–4:15 | `./swarm.sh run --cloud --declare --fault outage-C --pause` | "Withdraw a model and its calls are refused; the swarm carries on with the other specialists." |
+| 4:15–5:00 | The judge line and the PASS lines, then `tools/rebuild.py` | "A different AI family grades the agents. Every result rebuilds from our evidence." |
+
+Not built yet: applying the approved change to the network (through the AgentCore Gateway) and checking it worked. Say so if asked; the run stops at "ready to apply".
 
 ## 3. The pitch (2:00 + 0:30)
 
 > **Problem (20 s).** Operators won't let AI agents touch a live network. They need rules, a person in the loop, and proof of every step.
 >
-> **What we built (40 s).** Two agents fix a cell network, but every model call, hand-off and action crosses one checkpoint. A Cedar policy decides, Bedrock Guardrails screen what goes in and out, a person approves any change, and every step is written to CloudWatch and DynamoDB under one trace id.
+> **What we built (40 s).** Five agents (three specialists, a risk critic and an orchestrator, each in its own AgentCore runtime) fix a cell network, but every model call, hand-off and action crosses one checkpoint. A Cedar policy decides, Bedrock Guardrails screen what goes in and out, a person approves any change, and every step is written to CloudWatch and DynamoDB under one trace id.
 >
 > **Proof (40 s).** Live: "restart all towers" is denied, the rollback is allowed after approval, a withdrawn model is refused, and the trace rebuilds end to end. An independent judge from a different model family grades the agents. We also compare five agent models under one configuration, and a planted prompt injection is stopped.
 >

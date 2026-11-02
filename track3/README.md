@@ -48,6 +48,10 @@ AWS setup files are in `aws/` (IAM policies, Cedar rules, the tools Lambda); the
 
 | Stage | Command |
 |---|---|
+| **Five agents on AgentCore** (one runtime each): break tower C, 3 specialists, risk critic, recommendation, deny, you approve, allow, judge | `./swarm.sh run --cloud --declare --fault outage-C` (asks you to type `yes`) |
+| **Five agents: pause** (capacity's model withdrawn mid-run, the run goes on) | `./swarm.sh run --cloud --declare --fault outage-C --pause` |
+| Five agents, dev run (not declared; add `--approve-as test-unattended` for no person) | `./swarm.sh run --cloud --fault outage-C` |
+| *Below: the first, two-agent version (Nov 1), kept for its evidence* | |
 | Simulator (the network) | `cd ../practice && ./demo.sh --story` |
 | Register the models | `./track3.sh setup` |
 | Incident: deny, approve, allow, roll back, judge | `./track3.sh run` (asks you to type `yes`) |

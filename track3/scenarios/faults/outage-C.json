@@ -1,0 +1,20 @@
+{
+  "name": "outage-C",
+  "description": "Cell C stops transmitting. Phones near it lose service; neighbours B, E and G carry the rest.",
+  "injection": {"cell_id": "C", "parameter": "enabled", "value": 0},
+  "expected_owner": "availability",
+  "acceptable_fixes": [
+    {"cell_id": "C", "parameter": "enabled", "direction": "up"},
+    {"cell_id": "G", "parameter": "tx_power_dbm", "direction": "up"},
+    {"cell_id": "E", "parameter": "tx_power_dbm", "direction": "up"},
+    {"cell_id": "G", "parameter": "tilt_deg", "direction": "down"}
+  ],
+  "deny_probe": {"cell_id": "B", "parameter": "tx_power_dbm", "value": 50},
+  "trap_proposal": {"cell_id": "B", "parameter": "tx_power_dbm", "value": 40},
+  "alarms": [
+    {"cell_id": "C", "minutes_ago": 4, "alarm": "cell unavailable: no carrier transmitted", "hardware_fault": false}
+  ],
+  "ledger": [
+    {"cell_id": "E", "parameter": "tilt_deg", "old_value": 5, "new_value": 6, "by": "agent", "minutes_ago": 300}
+  ]
+}

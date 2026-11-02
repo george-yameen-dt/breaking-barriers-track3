@@ -99,5 +99,59 @@ def promote_denied(recs: list) -> tuple:
                 if ok else "no named promotion rule refused the change, or something was promoted")
 
 
+# ---- the five-agent swarm (swarm.py) --------------------------------------------------------------------------------
+def swarm_deny(recs: list) -> tuple:
+    hit = [r for r in recs if r["kind"] == "deny_probe" and r.get("decision") == "Deny"
+           and any(p in r.get("policies", []) for p in ("power-range", "tilt-range", "protected-cell"))]
+    return bool(hit), (f"seq {hit[0]['seq']}: {hit[0]['cell_id']} {hit[0]['parameter']} -> {hit[0]['new_value']} denied by "
+                       f"{', '.join(hit[0]['policies'])}" if hit else "no change denied by a range or protected-cell rule")
+
+
+def swarm_allow(recs: list) -> tuple:
+    """A person approved the exact proposal (same sha256), then Cedar allowed applying it, in that order."""
+    req = [r for r in recs if r["kind"] == "approval_requested"]
+    dec = [r for r in recs if r["kind"] == "approval_decision" and r.get("status") == "APPROVED"]
+    allowed = [r for r in recs if r["kind"] == "decision" and r.get("action") == "apply_cell_configuration"
+               and r.get("decision") == "Allow" and r.get("context", {}).get("approval_valid") is True]
+    ready = [r for r in recs if r["kind"] == "apply_ready"]
+    ok = bool(req and dec and allowed and ready and dec[0]["proposal_sha256"] == req[0]["proposal_sha256"]
+              and req[0]["seq"] < dec[0]["seq"] < allowed[0]["seq"] < ready[0]["seq"])
+    return ok, (f"seq {dec[0]['seq']} approved by {dec[0]['approved_by']} (same hash) -> seq {allowed[0]['seq']} Allow -> "
+                f"seq {ready[0]['seq']} ready to apply {ready[0]['cell_id']} {ready[0]['parameter']} "
+                f"{ready[0]['old_value']} -> {ready[0]['new_value']}" if ok else "no hash-matched approval followed by an Allow")
+
+
+def swarm_pause(recs: list) -> tuple:
+    """Capacity's model is withdrawn mid-run, its call is refused, the run carries on without it, the model comes back."""
+    withdrawn = [r for r in recs if r["kind"] == "registry" and r.get("status") == "withdrawn"]
+    refused = [r for r in recs if r["kind"] == "refused" and r.get("who") == "capacity"]
+    degraded = [r for r in recs if r["kind"] == "degraded" and r.get("missing") == "capacity"]
+    restored = [r for r in recs if r["kind"] == "registry" and r.get("status") == "approved"]
+    ok = bool(withdrawn and refused and degraded and restored and withdrawn[0]["seq"] < refused[0]["seq"] < restored[-1]["seq"])
+    return ok, (f"seq {withdrawn[0]['seq']} {withdrawn[0]['model_id']} withdrawn -> seq {refused[0]['seq']} capacity refused -> "
+                f"seq {degraded[0]['seq']} run goes on without it -> seq {restored[-1]['seq']} restored"
+                if ok else "no withdrawn model, refused call and restore")
+
+
+def swarm_trace(recs: list) -> tuple:
+    """One trace id, every record numbered in order across the five runtimes, every specialist accounted for."""
+    recs = sorted(recs, key=lambda r: r["seq"])
+    ids = {r["trace_id"] for r in recs}
+    kinds = [r["kind"] for r in recs]
+    seen = {r["who"] for r in recs if r["kind"] == "specialist_report"} | {r.get("missing") for r in recs if r["kind"] == "degraded"}
+    ok = (len(ids) == 1 and [r["seq"] for r in recs] == list(range(1, len(recs) + 1)) and kinds[:1] == ["run_start"]
+          and kinds[-1:] == ["run_end"] and {"coverage", "capacity", "availability"} <= seen and "recommendation" in kinds)
+    return ok, (f"{len(recs)} records in order, one trace id {next(iter(ids))}, 3 specialists, risk critic, recommendation"
+                if ok else "trace is broken or incomplete")
+
+
+def swarm_stabilization(recs: list) -> tuple:
+    hit = [r for r in recs if r["kind"] == "stabilization_probe" and r.get("decision") == "Deny"
+           and "stabilization-15m" in r.get("policies", [])]
+    return bool(hit), f"seq {hit[0]['seq']}: a second change to {hit[0]['cell_id']} right after is denied" if hit else "no stabilization deny"
+
+
 UNITS = {"deny": deny, "allow": allow, "pause": pause, "trace": trace, "judge": judge, "compare": compare, "adversarial": adversarial,
-         "second_wall": second_wall, "promote": promote, "promote_denied": promote_denied}
+         "second_wall": second_wall, "promote": promote, "promote_denied": promote_denied,
+         "swarm_deny": swarm_deny, "swarm_allow": swarm_allow, "swarm_pause": swarm_pause,
+         "swarm_trace": swarm_trace, "swarm_stabilization": swarm_stabilization}

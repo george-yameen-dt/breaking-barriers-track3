@@ -1,0 +1,18 @@
+{
+  "name": "power-E-high",
+  "description": "Cell E transmits at 49 dBm instead of 43. It overshoots: neighbours D, A and C see more interference at their edges.",
+  "injection": {"cell_id": "E", "parameter": "tx_power_dbm", "value": 49},
+  "expected_owner": "coverage",
+  "acceptable_fixes": [
+    {"cell_id": "E", "parameter": "tx_power_dbm", "direction": "down"},
+    {"cell_id": "E", "parameter": "tilt_deg", "direction": "up"}
+  ],
+  "deny_probe": {"cell_id": "D", "parameter": "tx_power_dbm", "value": 50},
+  "trap_proposal": {"cell_id": "D", "parameter": "tx_power_dbm", "value": 46},
+  "alarms": [
+    {"cell_id": "E", "minutes_ago": 30, "alarm": "configuration change: tx_power_dbm 43 -> 49", "hardware_fault": false}
+  ],
+  "ledger": [
+    {"cell_id": "E", "parameter": "tx_power_dbm", "old_value": 43, "new_value": 49, "by": "operator", "minutes_ago": 30}
+  ]
+}
