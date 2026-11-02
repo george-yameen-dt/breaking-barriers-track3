@@ -39,7 +39,7 @@ Laptop simulator ─► Dynatrace (OpenPipeline → problem, Smartscape topology
         └── DynamoDB control ◄── Lambda team04-track3-tools ◄── AgentCore Gateway track3-gw
                                                                Policy in AgentCore, Cedar, ENFORCE (second wall)
      CloudWatch Logs /bb26/team04/track3 · DynamoDB bb26-team04-track3-records · S3 evidence/   ← official record
-     Dynatrace logs (track3-checkpoint) · Arize (bb26-track3)   ← every record, same trace id
+     Dynatrace logs (track3-checkpoint) · Arize (bb26-hackathon)   ← every record, same trace id
 ```
 
 AWS setup files are in `aws/` (IAM policies, Cedar rules, the tools Lambda); the runtime package is built by `agentcore/build.sh`.
@@ -55,6 +55,7 @@ AWS setup files are in `aws/` (IAM policies, Cedar rules, the tools Lambda); the
 | Freeze one real outage as the shared test set (once) | `./track3.sh freeze` |
 | Compare agent models under one configuration | `./track3.sh compare` |
 | Adversarial: prompt injection in the network data | `./track3.sh adversarial` |
+| Arize Signal gate: an open critical/high Signal issue withdraws the agent model | `./track3.sh signal [--watch 60] [--dry-run]` |
 | Read one run back (read-only live test) | `python3 tools/show_record.py --run-id <run_id> [--item N] [--trace]` |
 | Rebuild every result from evidence/, no AWS | `python3 tools/rebuild.py` |
 

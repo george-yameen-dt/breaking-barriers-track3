@@ -30,8 +30,9 @@ HERE = Path(__file__).parent
 CONTROL = HERE / "control.json"
 TENANT = "https://yqs73977.sprint.dynatracelabs.com"
 LOG_INGEST = "https://yqs73977.sprint.apps.dynatracelabs.com/platform/classic/environment-api/v2/logs/ingest"
-ARIZE_SPACE_ID = "U3BhY2U6NTI3NjU6L2tJWQ=="
-ARIZE_KEY = Path.home() / ".arize_api_key"
+ARIZE_SPACE_ID = "U3BhY2U6NTE5NTA6ckhYRg=="  # team space (agentic-aeric), where Arize Signal reviews the project
+ARIZE_KEY = Path.home() / ".arize_api_key_bb26"
+ARIZE_PROJECT = "bb26-hackathon"
 PROJECT = "cell-network-ops-agent"
 STATE_DIR = Path.home() / ".local/state/cell-ops-agent"  # empty folder, so Claude runs with no project context
 
@@ -50,7 +51,7 @@ Reply with JSON only, no markdown:
 def setup_tracing():
     provider = TracerProvider(resource=Resource.create({
         "service.name": PROJECT,
-        "openinference.project.name": PROJECT,
+        "openinference.project.name": ARIZE_PROJECT,
         "deployment.environment": "breaking-barriers-demo",
     }))
     targets = []

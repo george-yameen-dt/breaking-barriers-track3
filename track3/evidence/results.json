@@ -41,5 +41,11 @@
     "allow": "pass",
     "trace": "pass",
     "judge": "pass"
+  },
+  "2026-11-02T05-05-track3-incident-01": {
+    "deny": "pass",
+    "allow": "pass",
+    "trace": "pass",
+    "judge": "pass"
   }
 }
