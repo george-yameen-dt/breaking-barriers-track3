@@ -78,7 +78,9 @@ def experiment_passed(records: list, agent: str, version: str) -> bool:
 def promote(cp, registry, agent: str, version: str, evidence: dict, approve, requested_by: str = PROMOTER) -> dict:
     """Promote one prompt version through the checkpoint. Returns the last record: `promoted` or `denied`."""
     def denied(policies: list) -> dict:
-        return cp.record("denied", who=requested_by, action="promote", agent=agent, version=version, policies=policies)
+        # The evidence travels with every refusal, so a reader can tell "Signal unreadable (-1)" from "target missed".
+        return cp.record("denied", who=requested_by, action="promote", agent=agent, version=version, policies=policies,
+                         evidence=evidence)
 
     item = registry.get(agent, version)
     if not item or item["status"] != "candidate":

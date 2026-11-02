@@ -101,6 +101,7 @@ def test_below_target_denied_without_asking(offline_cp, registry):
 def test_arize_unreachable_fails_closed(offline_cp, registry):
     rec = promote(offline_cp, registry, "network-agent", "v2", {**GOOD, "open_blocking_issues": -1}, never_asked)
     assert rec["kind"] == "denied"
+    assert rec["evidence"]["open_blocking_issues"] == -1  # the record says why: Signal could not be read
     assert registry.active("network-agent") is None
 
 

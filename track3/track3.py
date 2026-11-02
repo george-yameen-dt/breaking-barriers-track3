@@ -519,6 +519,12 @@ def cmd_promote(args) -> None:
     cp = Checkpoint(run_id, uuid.uuid4().hex, HERE / "evidence" / "runs" / run_id)
     cp.record("run_start", declared_s3_last_modified=DECLARED_S3, purpose=f"promote {args.agent}@{args.version}", commit=code_commit())
     evidence = {"eval_passed": eval_passed, "open_blocking_issues": blocking_issue_count(), "experiment_run_id": args.experiment_run}
+    if evidence["open_blocking_issues"] < 0:
+        print("  Arize Signal could not be read (set ARIZE_API_KEY; it is in the team04/track3 secret). "
+              "The promotion policy treats that as a refusal.")
+    if not eval_passed:
+        print(f"  No passing experiment_result for {args.agent}@{args.version} in run '{args.experiment_run}'. "
+              "The promotion policy treats that as a refusal.")
     rec = promote(cp, PromptRegistry(cp.ddb), args.agent, args.version, evidence, approve_promotion(args.role, args.approve_as), requested_by)
     cp.record("run_end", outcome=rec["kind"])
     upload_run(run_id, cp.out_dir)
