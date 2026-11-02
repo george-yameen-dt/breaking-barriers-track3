@@ -78,7 +78,7 @@ The agent's output goes to `agent.log`. Close the sim window or press Ctrl-C to 
   - With `--act`, if Claude says roll back, it writes `control.json`. The sim reads that file and switches to v1, the phones go green, and the problem closes.
 - **Model:** Claude via the `claude` CLI, headless, with no tools and no project context. It costs about $0.004 a call. At the hackathon you'd swap in Bedrock in the team account.
 - **Traces:** each run is one trace with the steps read_network_state → chat claude → rollback_to_v1 → write_advice_to_dynatrace. The spans carry both GenAI and OpenInference attributes.
-  - **Arize:** traces go to project `cell-network-ops-agent` in your Arize AX space now.
+  - **Arize:** traces go to project `bb26-hackathon` in the team space (agentic-aeric), key in `~/.arize_api_key_bb26`. Arize Signal reviews that project every 6 hours and files issues.
   - **Dynatrace AI Observability:** set `DT_TRACES_TOKEN` in `~/.bindplane/.env` to a token with scope `openpipeline:traces:ingest`, and the same traces land there too.
 - **Story:** Dynatrace finds the problem and its blast radius. The AI agent explains it and fixes it. Arize grades the agent, and Dynatrace watches it in production.
 

@@ -4,6 +4,7 @@
   ./track3.sh run              one incident on AgentCore: diagnose, propose, deny, ask a person, roll back, judge
   ./track3.sh pause            on AgentCore: withdraw the agent model and show its calls refused, then restore it
   (add --local to run, pause to run the agents on this laptop instead, as before Nov 2)
+  ./track3.sh signal [--watch 60]   an open critical/high Arize Signal issue on bb26-hackathon withdraws the agent model
   python3 tools/show_record.py --run-id <id>    read-only record viewer (the judges' live test)
   python3 tools/rebuild.py                      reprint every result from evidence/, no AWS
 
@@ -25,9 +26,9 @@ from pathlib import Path
 import boto3
 from botocore.config import Config
 
-from checkpoint import POLICIES, REGION, Checkpoint, Refused
+from checkpoint import ARIZE_PROJECT, POLICIES, REGION, Checkpoint, Refused
 from incident import AGENT_MODEL, DIAGNOSE, JUDGE, JUDGE_MODEL, PROPOSE, parse_json, run_incident
-from tools import check
+from tools import arize_signal, check
 
 HERE = Path(__file__).parent
 PRACTICE = HERE.parent / "practice"
@@ -333,6 +334,49 @@ def cmd_pause_local(args) -> None:
     print(f"run {run_id}")
 
 
+def signal_once(dry_run: bool) -> None:
+    """One check: an open critical or high Arize Signal issue withdraws the agent model; the checkpoint then refuses its calls."""
+    found = arize_signal.blocking()
+    stamp = datetime.now().strftime("%H:%M:%S")
+    if not found:
+        print(f"{stamp} Signal: no open critical or high issue on {ARIZE_PROJECT}")
+        return
+    for i in found:
+        print(f"{stamp} Signal: {i['severity']} · {i['title']} ({len(i['traceIds'] or [])} traces)")
+    if dry_run:
+        print(f"{stamp} dry run: would withdraw {AGENT_MODEL}")
+        return
+    run_id = new_run_id("signal")
+    declare(run_id, ["signal"], {"signal": f"an open critical or high Arize Signal issue on {ARIZE_PROJECT} withdraws {AGENT_MODEL} "
+                                           "in the registry, so the checkpoint refuses its calls until a person approves it again"})
+    cp = Checkpoint(run_id, uuid.uuid4().hex, HERE / "evidence" / "runs" / run_id)
+    cp.record("run_start", declared_s3_last_modified=DECLARED_S3, purpose="Arize Signal gate", commit=code_commit())
+    if cp.model_status(AGENT_MODEL) != "approved":
+        print(f"{stamp} {AGENT_MODEL} is already {cp.model_status(AGENT_MODEL)}")
+    else:
+        for i in found:
+            cp.record("signal_issue", issue_id=i["id"], title=i["title"], severity=i["severity"], project=ARIZE_PROJECT,
+                      trace_ids=(i["traceIds"] or [])[:10], last_seen=i["lastSeen"])
+        cp.set_model_status(AGENT_MODEL, "withdrawn", "arize-signal")
+        print(f"{stamp} {AGENT_MODEL} withdrawn. A person restores it with ./track3.sh setup once the issue is handled.")
+        try:  # proof in the same run: the agent's next call is refused by the checkpoint
+            cp.call_model("network-agent", AGENT_MODEL, DIAGNOSE, '{"check": "is the network healthy?"}')
+            print("UNEXPECTED: the call went through")
+        except Refused as e:
+            print(f"{stamp} next agent call refused: {e}")
+    cp.record("run_end")
+    upload_run(run_id, cp.out_dir)
+    print(f"run {run_id}")
+
+
+def cmd_signal(args) -> None:
+    while True:
+        signal_once(args.dry_run)
+        if not args.watch:
+            return
+        time.sleep(args.watch)
+
+
 FROZEN = HERE / "scenarios" / "frozen-state.json"
 CANDIDATES = ["openai.gpt-oss-120b-1:0", "openai.gpt-oss-20b-1:0", "us.amazon.nova-pro-v1:0",
               "us.meta.llama3-3-70b-instruct-v1:0", "us.deepseek.r1-v1:0"]
@@ -441,9 +485,12 @@ def main() -> None:
     c = sub.add_parser("compare")
     c.add_argument("--models", default="", help="comma-separated Bedrock model ids (default: five non-Anthropic models)")
     sub.add_parser("adversarial")
+    s = sub.add_parser("signal")
+    s.add_argument("--watch", type=int, default=0, help="check again every N seconds")
+    s.add_argument("--dry-run", action="store_true", help="report blocking issues, change nothing")
     a = ap.parse_args()
     {"setup": cmd_setup, "run": cmd_run, "pause": cmd_pause, "freeze": cmd_freeze, "compare": cmd_compare,
-     "adversarial": cmd_adversarial}[a.cmd](a)
+     "adversarial": cmd_adversarial, "signal": cmd_signal}[a.cmd](a)
 
 
 if __name__ == "__main__":

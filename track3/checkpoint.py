@@ -33,6 +33,11 @@ GUARDRAIL_VERSION = "DRAFT"
 HERE = Path(__file__).parent
 POLICIES = HERE / "policies" / "track3.cedar"
 DT_LOGS = "https://yqs73977.sprint.apps.dynatracelabs.com/platform/classic/environment-api/v2/logs/ingest"
+# Spans go to the team's Arize space (agentic-aeric), where Arize Signal reviews the project and files issues.
+# On AgentCore both ARIZE_SPACE_ID and ARIZE_API_KEY come from the team04/track3 secret.
+ARIZE_SPACE_ID = os.environ.get("ARIZE_SPACE_ID", "U3BhY2U6NTE5NTA6ckhYRg==")
+ARIZE_PROJECT = "bb26-hackathon"
+ARIZE_KEY_FILE = Path.home() / ".arize_api_key_bb26"
 
 # Tools that change the network. Each needs a policy decision and, where the policy says so, a person's approval.
 STATE_CHANGING = {"restart_all_towers", "set_tower_power", "rollback_model"}
@@ -49,13 +54,12 @@ class _RunTraceIds(RandomIdGenerator):
 
 
 def make_tracer(trace_id: str):
-    provider = TracerProvider(resource=Resource.create({"service.name": "track3-checkpoint", "openinference.project.name": "bb26-track3"}),
+    provider = TracerProvider(resource=Resource.create({"service.name": "track3-checkpoint", "openinference.project.name": ARIZE_PROJECT}),
                               id_generator=_RunTraceIds(trace_id))
-    key_file = Path.home() / ".arize_api_key"
-    key = os.environ.get("ARIZE_API_KEY") or (key_file.read_text().strip() if key_file.exists() else "")
+    key = os.environ.get("ARIZE_API_KEY") or (ARIZE_KEY_FILE.read_text().strip() if ARIZE_KEY_FILE.exists() else "")
     if key:
         provider.add_span_processor(SimpleSpanProcessor(OTLPSpanExporter(
-            endpoint="https://otlp.arize.com/v1/traces", headers={"space_id": "U3BhY2U6NTI3NjU6L2tJWQ==", "api_key": key})))
+            endpoint="https://otlp.arize.com/v1/traces", headers={"space_id": ARIZE_SPACE_ID, "api_key": key})))
     token = os.environ.get("DT_TRACES_TOKEN")
     if token:
         provider.add_span_processor(SimpleSpanProcessor(OTLPSpanExporter(
