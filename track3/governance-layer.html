@@ -1,0 +1,472 @@
+<title>Track 3 Governance Layer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: whiteboard order kept left → right (detect → agents → gate → outcomes), observability band underneath, mapping table last */
+:root {
+  --bg: #F5F7FA; --surface: #FFFFFF; --ink: #161B22; --muted: #5A6472; --line: #C8D0DB; --soft: #EEF2F7;
+  --deny: #C3352D; --allow: #1D8448; --pause: #A86A12; --trace: #2D6CB0;
+  --c-ml: #01A88D; --c-sec: #DD344C; --c-db: #C925D1; --c-mgmt: #E7157B; --c-store: #7AA116; --c-compute: #ED7100; --c-human: #545B64;
+  --c-dt: #1496FF; --c-arize: #6F4FE8; --c-net: #8C4FFF;
+  --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11151B; --surface: #192029; --ink: #E5E9EF; --muted: #98A3B2; --line: #343D4A; --soft: #1F2731;
+  --deny: #F0736A; --allow: #4FC283; --pause: #E2A647; --trace: #72A9E6; --c-human: #6B7380; --c-arize: #7E62F0; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #11151B; --surface: #192029; --ink: #E5E9EF; --muted: #98A3B2; --line: #343D4A; --soft: #1F2731;
+  --deny: #F0736A; --allow: #4FC283; --pause: #E2A647; --trace: #72A9E6; --c-human: #6B7380; --c-arize: #7E62F0; color-scheme: dark }
+
+body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 32px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 24px; }
+header { display: flex; flex-direction: column; gap: 6px; }
+.eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+h1 { margin: 0; font-size: 28px; font-weight: 600; text-wrap: balance; }
+.lede { margin: 0; color: var(--muted); max-width: 72ch; }
+.diagram { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow-x: auto; padding: 8px; }
+.diagram svg { display: block; width: 100%; min-width: 920px; height: auto; }
+.callout { border-left: 3px solid var(--pause); background: var(--surface); padding: 12px 16px; border-radius: 0 10px 10px 0; max-width: 80ch; }
+.callout b { color: var(--pause); }
+h2 { margin: 8px 0 0; font-size: 18px; font-weight: 600; }
+.table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 14px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 500; background: var(--soft); }
+tr:last-child td { border-bottom: 0; }
+tr.group td { background: var(--soft); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 500; padding-block: 6px; }
+td code { font-family: var(--mono); font-size: 12.5px; }
+.board-miss { color: var(--pause); font-style: italic; }
+.pill { display: inline-block; font-size: 12px; font-weight: 500; padding: 1px 9px; border-radius: 999px; white-space: nowrap; }
+.pill.built { color: var(--allow); border: 1px solid var(--allow); }
+.pill.todo { color: var(--pause); border: 1px solid var(--pause); }
+.why { display: block; color: var(--muted); font-size: 13px; margin-top: 3px; }
+.section-lede { margin: -12px 0 0; color: var(--muted); max-width: 72ch; }
+details { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; }
+summary { cursor: pointer; font-weight: 600; }
+summary:focus-visible { outline: 2px solid var(--trace); outline-offset: 3px; border-radius: 4px; }
+.code-note { margin: 8px 0 0; color: var(--muted); font-size: 13px; }
+pre { margin: 10px 0 0; overflow-x: auto; background: var(--soft); border-radius: 8px; padding: 12px 14px; font: 12.5px/1.55 var(--mono); color: var(--ink); }
+footer { color: var(--muted); font-size: 13px; }
+footer a { color: var(--trace); }
+
+/* SVG */
+.t-h { font: 600 17px var(--sans); fill: var(--ink); }
+.t-b { font: 600 14px var(--sans); fill: var(--ink); }
+.t-s { font: 400 12px var(--sans); fill: var(--muted); }
+.t-m { font: 400 11px var(--mono); fill: var(--ink); }
+.t-chip { font: 500 10.5px var(--mono); fill: var(--c-arize); }
+.t-n { font: italic 400 11px var(--sans); fill: var(--pause); }
+.t-e { font: 500 11px var(--sans); letter-spacing: .08em; fill: var(--muted); }
+.t-pill { font: 500 10.5px var(--sans); fill: var(--pause); }
+.gov { fill: var(--soft); stroke: var(--ink); stroke-width: 1.6; }
+.inner { fill: var(--surface); stroke: var(--line); stroke-width: 1.2; }
+.dash { stroke-dasharray: 7 5; stroke: var(--muted); }
+.agents { fill: none; stroke: var(--muted); stroke-width: 1.6; stroke-dasharray: 10 7; }
+.chip { fill: var(--surface); stroke: var(--line); stroke-width: 1.2; }
+.out { fill: var(--surface); stroke: var(--line); stroke-width: 1.2; }
+.obs { fill: var(--surface); stroke: var(--line); stroke-width: 1.2; }
+.span-chip { fill: none; stroke: var(--c-arize); stroke-width: 1; }
+.rule { stroke: var(--line); stroke-width: 1; }
+.pillbox { fill: none; stroke: var(--pause); stroke-width: 1; }
+.pillbox-ok { fill: none; stroke: var(--allow); stroke-width: 1; }
+.t-pill-ok { font: 500 10.5px var(--sans); fill: var(--allow); }
+.flow { fill: none; stroke: var(--muted); stroke-width: 1.6; }
+.f-deny { stroke: var(--deny); } .f-allow { stroke: var(--allow); } .f-pause { stroke: var(--pause); } .f-trace { stroke: var(--trace); } .f-dt { stroke: var(--c-dt); }
+.k-deny { fill: var(--deny); } .k-allow { fill: var(--allow); } .k-pause { fill: var(--pause); } .k-trace { fill: var(--trace); } .k-muted { fill: var(--muted); } .k-dt { fill: var(--c-dt); }
+.glyph { fill: none; stroke: #FFFFFF; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.glyph-t { font: 600 15px var(--sans); fill: #FFFFFF; }
+.tile-ml { fill: var(--c-ml); } .tile-sec { fill: var(--c-sec); } .tile-db { fill: var(--c-db); } .tile-mgmt { fill: var(--c-mgmt); }
+.tile-store { fill: var(--c-store); } .tile-compute { fill: var(--c-compute); } .tile-human { fill: var(--c-human); }
+.tile-dt { fill: var(--c-dt); } .tile-arize { fill: var(--c-arize); } .tile-net { fill: var(--c-net); }
+.zone { fill: var(--soft); stroke: var(--line); stroke-width: 1; }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Breaking Barriers · Track 3 · bb26-team04 · us-east-2</span>
+    <h1>Every agent call crosses one governance layer</h1>
+    <p class="lede">The whiteboard sketch, redrawn with the AWS services the participant guide names for Track 3. Dynatrace detects the outage and shows the operator every decision; Arize shows how the agents got there. Colored tiles follow AWS architecture-icon categories.</p>
+  </header>
+
+  <div class="diagram">
+    <svg viewBox="0 0 1200 940" role="img" aria-labelledby="dgm-t dgm-d">
+      <title id="dgm-t">Track 3 governance layer on AWS, with Dynatrace and Arize</title>
+      <desc id="dgm-d">Dynatrace detects the cell network outage and hands the problem to agents on Bedrock AgentCore Runtime. Every model, tool and agent-to-agent call goes through a governance layer made of a Cedar policy, Bedrock Guardrails, human approval and a model registry. Outcomes are a live deny, a live allow, a pause and a trace stored in CloudWatch Logs, DynamoDB and S3. Every audit record is also copied to Dynatrace as a log and to Arize as a span under the same trace id.</desc>
+      <defs>
+        <marker id="a-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" class="k-muted"/></marker>
+        <marker id="a-deny" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" class="k-deny"/></marker>
+        <marker id="a-allow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" class="k-allow"/></marker>
+        <marker id="a-pause" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" class="k-pause"/></marker>
+        <marker id="a-trace" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" class="k-trace"/></marker>
+        <marker id="a-dt" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" class="k-dt"/></marker>
+        <symbol id="g-shield" viewBox="0 0 36 36"><path class="glyph" d="M18 7 L27 10.5 V18 C27 23.5 23 27.5 18 29.5 C13 27.5 9 23.5 9 18 V10.5 Z"/><path class="glyph" d="M14 18 L17 21 L22.5 15"/></symbol>
+        <symbol id="g-funnel" viewBox="0 0 36 36"><path class="glyph" d="M9 10 H27 L20 19 V27 L16 29 V19 Z"/></symbol>
+        <symbol id="g-db" viewBox="0 0 36 36"><ellipse class="glyph" cx="18" cy="11" rx="9" ry="3.5"/><path class="glyph" d="M9 11 V25 C9 27 13 28.5 18 28.5 C23 28.5 27 27 27 25 V11"/><path class="glyph" d="M9 18 C9 20 13 21.5 18 21.5 C23 21.5 27 20 27 18"/></symbol>
+        <symbol id="g-person" viewBox="0 0 36 36"><circle class="glyph" cx="18" cy="13" r="4.5"/><path class="glyph" d="M9.5 29 C9.5 22.5 13 20 18 20 C23 20 26.5 22.5 26.5 29"/></symbol>
+        <symbol id="g-logs" viewBox="0 0 36 36"><rect class="glyph" x="9" y="9" width="18" height="18" rx="2"/><path class="glyph" d="M13 15 H23 M13 19 H23 M13 23 H19"/></symbol>
+        <symbol id="g-bucket" viewBox="0 0 36 36"><ellipse class="glyph" cx="18" cy="11" rx="9" ry="3"/><path class="glyph" d="M9 11 L12 26.5 C12 28 15 29 18 29 C21 29 24 28 24 26.5 L27 11"/></symbol>
+        <symbol id="g-cube" viewBox="0 0 36 36"><path class="glyph" d="M18 7 L28 12.5 V23.5 L18 29 L8 23.5 V12.5 Z M8 12.5 L18 18 L28 12.5 M18 18 V29"/></symbol>
+        <symbol id="g-nodes" viewBox="0 0 36 36"><path class="glyph" d="M12 12 L24 12 L18 25 Z"/><circle class="glyph" cx="12" cy="12" r="3"/><circle class="glyph" cx="24" cy="12" r="3"/><circle class="glyph" cx="18" cy="25" r="3"/></symbol>
+        <symbol id="g-gate" viewBox="0 0 36 36"><path class="glyph" d="M11 9 V27 M15 18 H28 M23 13 L28 18 L23 23"/></symbol>
+        <symbol id="g-pulse" viewBox="0 0 36 36"><path class="glyph" d="M7 19 H12 L15 11 L20 26 L23 17 H29"/></symbol>
+        <symbol id="g-spans" viewBox="0 0 36 36"><path class="glyph" d="M9 11 H27 M13 17 H24 M16 23 H21 M13 29 H19"/></symbol>
+      </defs>
+
+      <!-- Call types (top of the board) -->
+      <text x="600" y="24" text-anchor="middle" class="t-e">EVERY CALL TYPE CROSSES THE GATE</text>
+      <rect x="380" y="36" width="136" height="52" rx="10" class="chip"/>
+      <text x="448" y="58" text-anchor="middle" class="t-b">Model call</text>
+      <text x="448" y="76" text-anchor="middle" class="t-s">Amazon Bedrock</text>
+      <rect x="532" y="36" width="136" height="52" rx="10" class="chip"/>
+      <text x="600" y="58" text-anchor="middle" class="t-b">Tool call</text>
+      <text x="600" y="76" text-anchor="middle" class="t-s">AgentCore Gateway</text>
+      <rect x="684" y="36" width="136" height="52" rx="10" class="chip"/>
+      <text x="752" y="58" text-anchor="middle" class="t-b">A2A call</text>
+      <text x="752" y="76" text-anchor="middle" class="t-s">agent hand-off</text>
+      <path d="M448 88 L556 144" class="flow" marker-end="url(#a-muted)"/>
+      <path d="M600 88 L600 144" class="flow" marker-end="url(#a-muted)"/>
+      <path d="M752 88 L644 144" class="flow" marker-end="url(#a-muted)"/>
+
+      <!-- Dynatrace detects (left, top) -->
+      <rect x="40" y="118" width="280" height="108" rx="12" class="inner"/>
+      <rect x="54" y="132" width="36" height="36" rx="6" class="tile-dt"/><use href="#g-pulse" x="54" y="132" width="36" height="36"/>
+      <text x="102" y="147" class="t-b">Dynatrace</text>
+      <text x="102" y="164" class="t-s">detects the outage</text>
+      <text x="56" y="194" class="t-s">cell sim logs → OpenPipeline → problem</text>
+      <text x="56" y="212" class="t-s">a Workflow starts the agents (below)</text>
+      <path d="M180 226 L180 258" class="flow f-dt" marker-end="url(#a-dt)"/>
+      <text x="192" y="247" class="t-s">problem + facts</text>
+
+      <!-- Agents (left) -->
+      <rect x="30" y="262" width="300" height="318" rx="18" class="agents"/>
+      <rect x="46" y="278" width="36" height="36" rx="6" class="tile-ml"/><use href="#g-cube" x="46" y="278" width="36" height="36"/>
+      <text x="94" y="293" class="t-b">Agents</text>
+      <text x="94" y="310" class="t-s">Bedrock AgentCore Runtime</text>
+      <rect x="266" y="278" width="50" height="20" rx="10" class="pillbox-ok"/>
+      <text x="291" y="292" text-anchor="middle" class="t-pill-ok">live</text>
+
+      <rect x="50" y="334" width="260" height="60" rx="10" class="inner"/>
+      <rect x="62" y="350" width="28" height="28" rx="5" class="tile-ml"/><use href="#g-nodes" x="62" y="350" width="28" height="28"/>
+      <text x="102" y="359" class="t-b">Network agent</text>
+      <text x="102" y="377" class="t-s">diagnoses · gpt-oss-120b</text>
+      <path d="M180 394 L180 434" class="flow" marker-end="url(#a-muted)"/>
+      <text x="192" y="419" class="t-s">A2A hand-off</text>
+      <rect x="50" y="438" width="260" height="60" rx="10" class="inner"/>
+      <rect x="62" y="454" width="28" height="28" rx="5" class="tile-ml"/><use href="#g-nodes" x="62" y="454" width="28" height="28"/>
+      <text x="102" y="463" class="t-b">Change agent</text>
+      <text x="102" y="481" class="t-s">proposes a fix · gpt-oss-120b</text>
+      <text x="50" y="530" class="t-s">Judge: Claude Haiku 5.5 on Bedrock</text>
+      <text x="50" y="548" class="t-s">a different model family grades the answers</text>
+
+      <path d="M330 415 L441 415" class="flow" marker-end="url(#a-muted)"/>
+      <text x="386" y="404" text-anchor="middle" class="t-s">every call</text>
+
+      <!-- Governance layer (center) -->
+      <rect x="445" y="150" width="310" height="510" rx="24" class="gov"/>
+      <text x="600" y="181" text-anchor="middle" class="t-h">Governance layer</text>
+      <text x="600" y="199" text-anchor="middle" class="t-s">one checkpoint for every call</text>
+
+      <rect x="465" y="214" width="270" height="104" rx="12" class="inner dash"/>
+      <rect x="479" y="228" width="36" height="36" rx="6" class="tile-sec"/><use href="#g-shield" x="479" y="228" width="36" height="36"/>
+      <text x="527" y="242" class="t-b">1 · Cedar policy</text>
+      <text x="527" y="260" class="t-s">Policy in AgentCore · tool calls</text>
+      <text x="527" y="277" class="t-s">checkpoint.py · model + A2A calls</text>
+      <text x="527" y="298" class="t-m">track3.cedar · 5 rules</text>
+
+      <rect x="465" y="330" width="270" height="88" rx="12" class="inner"/>
+      <rect x="479" y="344" width="36" height="36" rx="6" class="tile-ml"/><use href="#g-funnel" x="479" y="344" width="36" height="36"/>
+      <text x="527" y="358" class="t-b">2 · Bedrock Guardrails</text>
+      <text x="527" y="375" class="t-s">screens model input + output</text>
+      <text x="527" y="393" class="t-m">lr4zff1274hc · DRAFT</text>
+
+      <rect x="465" y="430" width="270" height="88" rx="12" class="inner"/>
+      <rect x="479" y="444" width="36" height="36" rx="6" class="tile-human"/><use href="#g-person" x="479" y="444" width="36" height="36"/>
+      <text x="527" y="458" class="t-b">3 · Human approval</text>
+      <text x="527" y="475" class="t-s">before any change of state</text>
+      <text x="527" y="493" class="t-m">operator types yes</text>
+
+      <rect x="465" y="530" width="270" height="88" rx="12" class="inner"/>
+      <rect x="479" y="544" width="36" height="36" rx="6" class="tile-db"/><use href="#g-db" x="479" y="544" width="36" height="36"/>
+      <text x="527" y="558" class="t-b">Model registry</text>
+      <text x="527" y="575" class="t-s">Amazon DynamoDB, read by step 1</text>
+      <text x="527" y="593" class="t-m">bb26-team04-track3-registry</text>
+
+      <text x="600" y="644" text-anchor="middle" class="t-s">each decision writes one audit record</text>
+
+      <!-- Outcomes (right) -->
+      <path d="M755 198 L841 198" class="flow f-deny" marker-end="url(#a-deny)"/>
+      <path d="M755 327 L841 327" class="flow f-allow" marker-end="url(#a-allow)"/>
+      <path d="M755 449 L841 449" class="flow f-pause" marker-end="url(#a-pause)"/>
+      <path d="M755 588 L841 588" class="flow f-trace" marker-end="url(#a-trace)"/>
+
+      <rect x="845" y="150" width="325" height="96" rx="12" class="out"/>
+      <rect x="853" y="162" width="4" height="72" rx="2" class="k-deny"/>
+      <text x="869" y="176" class="t-b k-deny">Live deny</text>
+      <text x="869" y="196" class="t-m">restart_all_towers</text>
+      <text x="869" y="214" class="t-s">forbid: no-network-wide-restart</text>
+      <text x="869" y="232" class="t-s">refused, with a decision record</text>
+
+      <rect x="845" y="262" width="325" height="130" rx="12" class="out"/>
+      <rect x="853" y="274" width="4" height="106" rx="2" class="k-allow"/>
+      <text x="869" y="288" class="t-b k-allow">Live allow</text>
+      <text x="869" y="308" class="t-m">rollback_model</text>
+      <text x="869" y="326" class="t-s">runs only after a person approves</text>
+      <rect x="869" y="338" width="24" height="24" rx="4" class="tile-ml"/><use href="#g-gate" x="869" y="338" width="24" height="24"/>
+      <text x="899" y="355" class="t-s">AgentCore Gateway</text>
+      <path d="M1008 350 L1030 350" class="flow" marker-end="url(#a-muted)"/>
+      <rect x="1036" y="338" width="24" height="24" rx="4" class="tile-compute"/>
+      <text x="1048" y="356" text-anchor="middle" class="glyph-t">λ</text>
+      <text x="1066" y="355" class="t-s">AWS Lambda</text>
+      <text x="869" y="380" class="t-s">network rolls back to model v1</text>
+
+      <rect x="845" y="408" width="325" height="82" rx="12" class="out"/>
+      <rect x="853" y="420" width="4" height="58" rx="2" class="k-pause"/>
+      <text x="869" y="432" class="t-b k-pause">Pause</text>
+      <rect x="918" y="419" width="96" height="20" rx="10" class="pillbox"/>
+      <text x="966" y="433" text-anchor="middle" class="t-pill">not on the board</text>
+      <text x="869" y="455" class="t-s">model withdrawn in the registry</text>
+      <text x="869" y="473" class="t-m">invoke_model → refused</text>
+
+      <rect x="845" y="506" width="325" height="164" rx="12" class="out"/>
+      <rect x="853" y="518" width="4" height="140" rx="2" class="k-trace"/>
+      <text x="869" y="530" class="t-b k-trace">Trace · request → action</text>
+      <text x="869" y="548" class="t-s">one trace id, first request to last action</text>
+      <rect x="869" y="560" width="22" height="22" rx="4" class="tile-mgmt"/><use href="#g-logs" x="869" y="560" width="22" height="22"/>
+      <text x="899" y="575" class="t-b" style="font-size:12.5px">CloudWatch Logs</text>
+      <text x="1011" y="575" class="t-m">/bb26/team04/track3</text>
+      <rect x="869" y="590" width="22" height="22" rx="4" class="tile-db"/><use href="#g-db" x="869" y="590" width="22" height="22"/>
+      <text x="899" y="605" class="t-b" style="font-size:12.5px">DynamoDB</text>
+      <text x="1011" y="605" class="t-m">track3-records</text>
+      <rect x="869" y="620" width="22" height="22" rx="4" class="tile-store"/><use href="#g-bucket" x="869" y="620" width="22" height="22"/>
+      <text x="899" y="635" class="t-b" style="font-size:12.5px">Amazon S3</text>
+      <text x="1011" y="635" class="t-m">evidence/</text>
+      <text x="869" y="659" class="t-s">the official record, read-only for judges</text>
+
+      <!-- Every record copied out, same trace id -->
+      <path d="M1007 670 V694 H310 V722" class="flow f-trace" marker-end="url(#a-trace)"/>
+      <path d="M890 694 V722" class="flow f-trace" marker-end="url(#a-trace)"/>
+      <rect x="470" y="684" width="260" height="20" rx="10" style="fill:var(--surface)"/>
+      <text x="600" y="698" text-anchor="middle" class="t-e">EVERY RECORD, SAME TRACE ID</text>
+
+      <!-- Dynatrace operator view (bottom left) -->
+      <rect x="30" y="726" width="560" height="200" rx="14" class="obs"/>
+      <rect x="46" y="742" width="36" height="36" rx="6" class="tile-dt"/><use href="#g-pulse" x="46" y="742" width="36" height="36"/>
+      <text x="94" y="757" class="t-b">Dynatrace</text>
+      <text x="94" y="774" class="t-s">operator view · same tenant that raised the problem</text>
+      <line x1="46" y1="794" x2="574" y2="794" class="rule"/>
+      <text x="46" y="816" class="t-e">DETECTS</text>
+      <text x="46" y="836" class="t-s">v2 cuts phones off →</text>
+      <text x="46" y="853" class="t-s">problem opens in ~1 min</text>
+      <text x="46" y="870" class="t-s">then sees the rollback land</text>
+      <line x1="218" y1="806" x2="218" y2="876" class="rule"/>
+      <text x="232" y="816" class="t-e">RECORDS</text>
+      <text x="232" y="836" class="t-s">each checkpoint record</text>
+      <text x="232" y="853" class="t-s">as a log, same trace id</text>
+      <text x="232" y="871" class="t-m">track3-checkpoint</text>
+      <line x1="398" y1="806" x2="398" y2="876" class="rule"/>
+      <text x="412" y="816" class="t-e">SHOWS</text>
+      <text x="412" y="836" class="t-s">Cell Network Live app,</text>
+      <text x="412" y="853" class="t-s">Checkpoint tab: deny,</text>
+      <text x="412" y="870" class="t-s">allow, pause, trace</text>
+      <text x="46" y="910" class="t-m">my.cell.network.live · problems · Smartscape</text>
+
+      <!-- Arize agent trace view (bottom right) -->
+      <rect x="610" y="726" width="560" height="200" rx="14" class="obs"/>
+      <rect x="626" y="742" width="36" height="36" rx="6" class="tile-arize"/><use href="#g-spans" x="626" y="742" width="36" height="36"/>
+      <text x="674" y="757" class="t-b">Arize AX</text>
+      <text x="674" y="774" class="t-s">agent trace view · how the agents got there</text>
+      <line x1="626" y1="794" x2="1154" y2="794" class="rule"/>
+      <text x="626" y="816" class="t-e">ONE SPAN PER RECORD</text>
+      <rect x="626" y="826" width="86" height="18" rx="9" class="span-chip"/><text x="669" y="839" text-anchor="middle" class="t-chip">AGENT</text>
+      <text x="722" y="839" class="t-s">the whole run</text>
+      <rect x="626" y="850" width="86" height="18" rx="9" class="span-chip"/><text x="669" y="863" text-anchor="middle" class="t-chip">LLM</text>
+      <text x="722" y="863" class="t-s">each model call</text>
+      <rect x="626" y="874" width="86" height="18" rx="9" class="span-chip"/><text x="669" y="887" text-anchor="middle" class="t-chip">GUARDRAIL</text>
+      <text x="722" y="887" class="t-s">Cedar + Guardrails</text>
+      <rect x="866" y="826" width="86" height="18" rx="9" class="span-chip"/><text x="909" y="839" text-anchor="middle" class="t-chip">TOOL</text>
+      <text x="962" y="839" class="t-s">each executed action</text>
+      <rect x="866" y="850" width="86" height="18" rx="9" class="span-chip"/><text x="909" y="863" text-anchor="middle" class="t-chip">EVALUATOR</text>
+      <text x="962" y="863" class="t-s">the judge's grade</text>
+      <text x="866" y="887" class="t-s">compare agent models run by run</text>
+      <text x="626" y="910" class="t-m">project bb26-track3 · OpenInference spans</text>
+    </svg>
+  </div>
+
+  <div class="callout"><b>Added to the whiteboard:</b> the guide requires three things on every call that the sketch leaves out: Bedrock Guardrails on model input and output, a person's approval before any change of state, and the Pause unit (withdraw a model, calls refused).</div>
+
+  <h2>A Dynatrace Workflow starts the run</h2>
+  <p class="section-lede">Today <code>track3.py</code> polls Dynatrace from the laptop until a problem opens. With a Workflow, the problem itself starts the agents in the cloud, and the laptop drops out. Not built yet.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 1200 450" role="img" aria-labelledby="wf-t wf-d">
+      <title id="wf-t">Dynatrace Workflow that starts the Track 3 agents</title>
+      <desc id="wf-d">A Davis problem trigger runs a JavaScript task that reads the facts with DQL, then a second JavaScript task posts them to Amazon API Gateway using a key from the credential vault. A Lambda function invokes the AgentCore Runtime, whose calls cross the governance layer. A third task emails the operator.</desc>
+
+      <rect x="20" y="20" width="690" height="420" rx="16" class="zone"/>
+      <rect x="36" y="34" width="22" height="22" rx="4" class="tile-dt"/><use href="#g-pulse" x="36" y="34" width="22" height="22"/>
+      <text x="66" y="50" class="t-b">Dynatrace Workflow</text>
+      <text x="214" y="50" class="t-s">yqs73977</text>
+      <rect x="628" y="35" width="66" height="20" rx="10" class="pillbox"/>
+      <text x="661" y="49" text-anchor="middle" class="t-pill">to build</text>
+
+      <rect x="740" y="20" width="440" height="420" rx="16" class="zone"/>
+      <text x="756" y="50" class="t-b">AWS</text>
+      <text x="792" y="50" class="t-s">bb26-team04 · us-east-2</text>
+      <rect x="1098" y="35" width="66" height="20" rx="10" class="pillbox"/>
+      <text x="1131" y="49" text-anchor="middle" class="t-pill">to build</text>
+
+      <!-- Trigger -->
+      <rect x="40" y="74" width="200" height="160" rx="12" class="inner"/>
+      <text x="56" y="96" class="t-e">TRIGGER</text>
+      <text x="56" y="118" class="t-b">Davis problem</text>
+      <text x="56" y="140" class="t-s">Cell network safety rule</text>
+      <text x="56" y="156" class="t-s">broken · state active</text>
+      <text x="56" y="214" class="t-n">no laptop in the loop</text>
+      <path d="M240 154 L258 154" class="flow f-dt" marker-end="url(#a-dt)"/>
+
+      <!-- Task 1 -->
+      <rect x="262" y="74" width="210" height="160" rx="12" class="inner"/>
+      <text x="278" y="96" class="t-e">TASK 1 · RUN JAVASCRIPT</text>
+      <text x="278" y="118" class="t-b">Read the facts</text>
+      <text x="278" y="138" class="t-m">read_facts</text>
+      <text x="278" y="160" class="t-s">DQL on mobile-env logs:</text>
+      <text x="278" y="176" class="t-s">model running, phones cut off</text>
+      <text x="278" y="214" class="t-n">internal API, no allowlist</text>
+      <path d="M472 154 L490 154" class="flow f-dt" marker-end="url(#a-dt)"/>
+
+      <!-- Task 2 -->
+      <rect x="494" y="74" width="196" height="160" rx="12" class="inner"/>
+      <text x="510" y="96" class="t-e">TASK 2 · RUN JAVASCRIPT</text>
+      <text x="510" y="118" class="t-b">Start the agents</text>
+      <text x="510" y="138" class="t-m">start_agents</text>
+      <text x="510" y="160" class="t-s">POST facts to API Gateway</text>
+      <text x="510" y="176" class="t-s">key from credential vault</text>
+      <text x="510" y="192" class="t-s">returns a run id</text>
+      <text x="510" y="214" class="t-n">host must be allowlisted</text>
+      <path d="M592 234 L592 254" class="flow f-dt" marker-end="url(#a-dt)"/>
+
+      <!-- JS runtime rules -->
+      <rect x="40" y="258" width="432" height="166" rx="12" class="inner dash"/>
+      <text x="56" y="282" class="t-b">JS runtime rules that shape this</text>
+      <text x="56" y="304" class="t-s">120 s per task, so Task 2 starts the run and returns.</text>
+      <text x="56" y="320" class="t-s">The agents keep going on AgentCore.</text>
+      <text x="56" y="344" class="t-s">External fetch only to allowlisted hosts. Today:</text>
+      <text x="56" y="362" class="t-m">api.github.com · www.dynatrace.com · 3.87.159.109.sslip.io</text>
+      <text x="56" y="386" class="t-s">Add the API Gateway host. Keep the key in the</text>
+      <text x="56" y="402" class="t-s">credential vault, never in the task code.</text>
+
+      <!-- Task 3 -->
+      <rect x="494" y="258" width="196" height="166" rx="12" class="inner"/>
+      <text x="510" y="280" class="t-e">TASK 3 · SEND EMAIL</text>
+      <text x="510" y="302" class="t-b">Tell the operator</text>
+      <text x="510" y="324" class="t-s">problem, run id and a link</text>
+      <text x="510" y="340" class="t-s">to the Checkpoint tab</text>
+      <text x="510" y="366" class="t-n">approval still waits</text>
+      <text x="510" y="382" class="t-n">at the gate</text>
+
+      <!-- Leaves Dynatrace -->
+      <path d="M690 112 C722 112 726 106 756 106" class="flow f-dt" marker-end="url(#a-dt)"/>
+      <text x="723" y="96" text-anchor="middle" class="t-s">HTTPS</text>
+
+      <!-- AWS side -->
+      <rect x="760" y="74" width="400" height="64" rx="12" class="inner"/>
+      <rect x="774" y="88" width="36" height="36" rx="6" class="tile-net"/><use href="#g-gate" x="774" y="88" width="36" height="36"/>
+      <text x="822" y="102" class="t-b">Amazon API Gateway</text>
+      <text x="822" y="120" class="t-s">POST /start · API key required</text>
+      <path d="M960 138 L960 154" class="flow" marker-end="url(#a-muted)"/>
+
+      <rect x="760" y="158" width="400" height="64" rx="12" class="inner"/>
+      <rect x="774" y="172" width="36" height="36" rx="6" class="tile-compute"/>
+      <text x="792" y="196" text-anchor="middle" class="glyph-t" style="font-size:20px">λ</text>
+      <text x="822" y="186" class="t-b">AWS Lambda · start-run</text>
+      <text x="822" y="204" class="t-s">InvokeAgentRuntime with its own IAM role</text>
+      <path d="M960 222 L960 238" class="flow" marker-end="url(#a-muted)"/>
+
+      <rect x="760" y="242" width="400" height="64" rx="12" class="inner"/>
+      <rect x="774" y="256" width="36" height="36" rx="6" class="tile-ml"/><use href="#g-cube" x="774" y="256" width="36" height="36"/>
+      <text x="822" y="270" class="t-b">AgentCore Runtime</text>
+      <text x="822" y="288" class="t-s">network agent → change agent</text>
+      <path d="M960 306 L960 322" class="flow" marker-end="url(#a-muted)"/>
+
+      <rect x="760" y="326" width="400" height="98" rx="14" class="gov"/>
+      <rect x="774" y="340" width="36" height="36" rx="6" class="tile-sec"/><use href="#g-shield" x="774" y="340" width="36" height="36"/>
+      <text x="822" y="354" class="t-b">Governance layer</text>
+      <text x="822" y="372" class="t-s">Cedar · Guardrails · approval · audit</text>
+      <text x="822" y="390" class="t-s">records go to Dynatrace + Arize</text>
+      <text x="822" y="408" class="t-s">(the diagram above)</text>
+    </svg>
+  </div>
+
+  <details>
+    <summary>Task code for read_facts and start_agents</summary>
+    <p class="code-note">A sketch only: not run yet. Values in angle brackets are placeholders.</p>
+<pre>// Task 1 · read_facts
+import { execution } from "@dynatrace-sdk/automation-utils";
+import { queryExecutionClient } from "@dynatrace-sdk/client-query";
+
+export default async function () {
+  const problem = (await execution()).event();   // the Davis problem that fired
+  const res = await queryExecutionClient.queryExecute({ body: {
+    query: `fetch logs, from: now()-10m
+      | filter service.name == "mobile-env" and mobile.kind == "step"
+      | sort timestamp desc | limit 1
+      | fields mobile.policy, mobile.phones_dropped, mobile.phones_served`,
+    requestTimeoutMilliseconds: 30000 } });
+  const step = res.result?.records?.[0] ?? {};
+  return { problem: problem.display_id,
+           model_running: step["mobile.policy"],
+           phones_dropped: step["mobile.phones_dropped"] };
+}
+
+// Task 2 · start_agents
+import { result } from "@dynatrace-sdk/automation-utils";
+import { credentialVaultClient } from "@dynatrace-sdk/client-classic-environment-v2";
+
+const START_URL = "https://&lt;api-id&gt;.execute-api.us-east-2.amazonaws.com/prod/start"; // on the allowlist
+const KEY_ID = "CREDENTIALS_VAULT-&lt;id&gt;";                                          // API Gateway key
+
+export default async function () {
+  const facts = await result("read_facts");
+  const { token } = await credentialVaultClient.getCredentialsDetails({ id: KEY_ID });
+  const res = await fetch(START_URL, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-api-key": token },
+    body: JSON.stringify(facts),
+  });
+  if (!res.ok) throw new Error(`start failed: ${res.status}`);
+  return res.json();   // { run_id, trace_id }; the agents keep running on AgentCore
+}</pre>
+  </details>
+
+  <h2>Whiteboard to services</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>On the board</th><th>Service</th><th>What we have</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr class="group"><td colspan="4">AWS</td></tr>
+        <tr><td>Agent</td><td>Amazon Bedrock AgentCore Runtime</td><td><code>track3_agents</code>: network agent + change agent (<code>openai.gpt-oss-120b-1:0</code>) and the checkpoint; role <code>team04-track3-runtime</code></td><td><span class="pill built">Live</span><span class="why">Since Nov 1, 19:18 PT. Every unit passes on AgentCore.</span></td></tr>
+        <tr><td>Model call</td><td>Amazon Bedrock (Converse API)</td><td>gpt-oss-120b agents, judge <code>us.anthropic.claude-haiku-5-5</code></td><td><span class="pill built">Built</span></td></tr>
+        <tr><td>Tool call</td><td>AgentCore Gateway → AWS Lambda</td><td><code>track3-gw</code> → Lambda <code>team04-track3-tools</code>: <code>rollback_model</code>, <code>restart_all_towers</code></td><td><span class="pill built">Live</span><span class="why">The rollback order reaches the simulator through DynamoDB.</span></td></tr>
+        <tr><td class="board-miss">not on board</td><td>Amazon API Gateway → AWS Lambda <code>start-run</code></td><td>The entry point the Dynatrace Workflow calls; the Lambda invokes the AgentCore Runtime</td><td><span class="pill todo">To build</span></td></tr>
+        <tr><td>A2A call</td><td>AgentCore Runtime to Runtime</td><td>Network agent hands off to change agent</td><td><span class="pill built">Built</span><span class="why">Both agents run in one runtime; every hand-off crosses the checkpoint.</span></td></tr>
+        <tr><td>Cedar policy</td><td>Policy in AgentCore for tool calls; checkpoint.py for model and A2A calls</td><td><code>policies/track3.cedar</code> (5 rules, in the checkpoint) and engine <code>track3_policies</code> (2 rules, ENFORCE)</td><td><span class="pill built">Live</span><span class="why">The checkpoint checks every call. AWS checks tool calls again at the Gateway: tested, it refuses restart_all_towers.</span></td></tr>
+        <tr><td class="board-miss">not on board</td><td>Amazon Bedrock Guardrails</td><td><code>lr4zff1274hc</code> (DRAFT)</td><td><span class="pill built">Built</span></td></tr>
+        <tr><td class="board-miss">not on board</td><td>Human approval in the checkpoint</td><td>Operator types yes before any change of state</td><td><span class="pill built">Built</span><span class="why">The yes travels from the laptop to AgentCore through DynamoDB. A run with a real typed yes is still to do.</span></td></tr>
+        <tr><td>Live deny / Live allow</td><td>Decision record in CloudWatch Logs + DynamoDB</td><td><code>restart_all_towers</code> denied, <code>rollback_model</code> allowed</td><td><span class="pill built">Built</span><span class="why">Passed on AgentCore in run 2026-11-01T19-20-track3-incident-01.</span></td></tr>
+        <tr><td class="board-miss">not on board</td><td>Amazon DynamoDB model registry</td><td><code>bb26-team04-track3-registry</code>, <code>./track3.sh pause</code></td><td><span class="pill built">Built</span></td></tr>
+        <tr><td>Trace request → action</td><td>CloudWatch Logs, DynamoDB, Amazon S3</td><td><code>/bb26/team04/track3</code>, <code>bb26-team04-track3-records</code>, <code>evidence/</code></td><td><span class="pill built">Built</span></td></tr>
+        <tr class="group"><td colspan="4">Dynatrace and Arize</td></tr>
+        <tr><td class="board-miss">not on board</td><td>Dynatrace: detection</td><td>Sim logs → OpenPipeline <code>gy-cell-network</code> → problem; Smartscape network, towers, phones; agents read the problem and network state</td><td><span class="pill built">Built</span></td></tr>
+        <tr><td class="board-miss">not on board</td><td>Dynatrace Workflow</td><td>Davis problem trigger → <code>read_facts</code> → <code>start_agents</code> → email</td><td><span class="pill todo">To build</span><span class="why">Replaces track3.py polling from the laptop. Needs the API Gateway host on the JS runtime allowlist.</span></td></tr>
+        <tr><td class="board-miss">not on board</td><td>Dynatrace: operator view</td><td>Every checkpoint record as a log (<code>service.name == "track3-checkpoint"</code>); Checkpoint tab in <code>my.cell.network.live</code></td><td><span class="pill built">Built</span></td></tr>
+        <tr><td class="board-miss">not on board</td><td>Arize AX</td><td>Every record as an OpenInference span in project <code>bb26-track3</code>, under the run's trace id</td><td><span class="pill built">Built</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer>Sources: Breaking Barriers Participant Guide, Track 3 section "What every call crosses"; <code>track3/checkpoint.py</code>; AWS Security Blog, <a href="https://aws.amazon.com/blogs/security/why-policy-in-amazon-bedrock-agentcore-chose-cedar-for-securing-agentic-workflows/">Why Policy in Amazon Bedrock AgentCore chose Cedar</a>.</footer>
+</div>

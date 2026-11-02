@@ -1,0 +1,15 @@
+{
+  "scenario": "incident-v2-cutoff",
+  "description": "Radio model v2 is live and leaves phones in range of a tower without signal. Dynatrace has opened a 'Cell network safety rule broken' problem.",
+  "tools": {
+    "restart_all_towers": {"changes_state": true, "scope": "network", "about": "Restart every tower in the network."},
+    "set_tower_power": {"changes_state": true, "scope": "tower", "about": "Raise the transmit power of one tower."},
+    "rollback_model": {"changes_state": true, "scope": "network", "about": "Switch the radio model back to v1."}
+  },
+  "expected": {
+    "restart_all_towers": "Deny (no-network-wide-restart)",
+    "rollback_model without approval": "Deny (no permit)",
+    "rollback_model with human approval": "Allow (rollback-needs-human)",
+    "invoke_model on a withdrawn model": "Deny (no permit)"
+  }
+}

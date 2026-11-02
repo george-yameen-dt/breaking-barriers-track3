@@ -1,0 +1,21 @@
+# Not ours to publish, or not part of the Track 3 hand-in
+/guides/
+/safety-gym/
+/agentbuilder/
+/aws/
+
+# Rebuilt by track3/agentcore/build.sh and track3/aws (zip of the Lambda)
+track3/agentcore/build/
+track3/agentcore/*.zip
+track3/aws/*.zip
+
+# Generated or local
+**/node_modules/
+cell-network-app/dist/
+cell-network-app/.dt-app/*
+!cell-network-app/.dt-app/deployment.json
+__pycache__/
+*.pyc
+*.log
+.DS_Store
+practice/control.json

@@ -1,0 +1,22 @@
+{
+ "Version": "2012-10-17",
+ "Statement": [
+  {
+   "Effect": "Allow",
+   "Action": "lambda:InvokeFunction",
+   "Resource": "arn:aws:lambda:us-east-2:279760855394:function:team04-track3-tools"
+  },
+  {
+   "Effect": "Allow",
+   "Action": [
+    "bedrock-agentcore:AuthorizeAction",
+    "bedrock-agentcore:PartiallyAuthorizeActions",
+    "bedrock-agentcore:GetPolicyEngine"
+   ],
+   "Resource": [
+    "arn:aws:bedrock-agentcore:us-east-2:279760855394:policy-engine/*",
+    "arn:aws:bedrock-agentcore:us-east-2:279760855394:gateway/track3-gw-*"
+   ]
+  }
+ ]
+}

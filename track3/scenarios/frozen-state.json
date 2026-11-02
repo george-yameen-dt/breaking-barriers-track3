@@ -1,0 +1,109 @@
+{
+  "problem": "P-26110140",
+  "captured_at": "2026-11-01T23:46:35.379758+00:00",
+  "model_running": "v2",
+  "phones_active": "15",
+  "phones_served": "9",
+  "phones_dropped": "6",
+  "median_rate_served": 1.749,
+  "tower_load": {
+    "A": 0,
+    "B": 4,
+    "C": 7,
+    "D": 1,
+    "E": 4,
+    "F": 0,
+    "G": 4
+  },
+  "dropped_phones": [
+    {
+      "phone": "phone-00",
+      "towers_in_range": [
+        {
+          "tower": "C",
+          "distance": 54.6,
+          "tower_load": 7
+        }
+      ]
+    },
+    {
+      "phone": "phone-02",
+      "towers_in_range": [
+        {
+          "tower": "G",
+          "distance": 39.5,
+          "tower_load": 4
+        },
+        {
+          "tower": "C",
+          "distance": 58.5,
+          "tower_load": 7
+        }
+      ]
+    },
+    {
+      "phone": "phone-04",
+      "towers_in_range": [
+        {
+          "tower": "C",
+          "distance": 39.9,
+          "tower_load": 7
+        }
+      ]
+    },
+    {
+      "phone": "phone-07",
+      "towers_in_range": [
+        {
+          "tower": "C",
+          "distance": 44.9,
+          "tower_load": 7
+        },
+        {
+          "tower": "G",
+          "distance": 65.6,
+          "tower_load": 4
+        }
+      ]
+    },
+    {
+      "phone": "phone-09",
+      "towers_in_range": [
+        {
+          "tower": "G",
+          "distance": 38.7,
+          "tower_load": 4
+        }
+      ]
+    },
+    {
+      "phone": "phone-13",
+      "towers_in_range": [
+        {
+          "tower": "C",
+          "distance": 58.5,
+          "tower_load": 7
+        },
+        {
+          "tower": "E",
+          "distance": 62.5,
+          "tower_load": 4
+        }
+      ]
+    }
+  ],
+  "v1_vs_v2_last_15_min": [
+    {
+      "dropped_per_step": 0,
+      "median_rate": 1.28,
+      "model": "v1",
+      "steps": "1795"
+    },
+    {
+      "dropped_per_step": 5.05,
+      "median_rate": 2.68,
+      "model": "v2",
+      "steps": "1713"
+    }
+  ]
+}

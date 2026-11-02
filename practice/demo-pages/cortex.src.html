@@ -1,0 +1,183 @@
+<title>Cell Network Cortex</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one map of the network and its AI agents on the left (top to bottom: agents, network, towers, phones); what Dynatrace knows about the selected item on the right. */
+:root {
+  --bg: #f4f5f7; --panel: #ffffff; --ink: #1b1f27; --muted: #5d6573; --line: #d9dde4; --soft: #eef0f4;
+  --signal: #2e7d5b; --cut: #c0392b; --ai: #3b5bdb;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11141a; --panel: #181c24; --ink: #e8ebf0; --muted: #98a1b0; --line: #2a303b; --soft: #202530;
+  --signal: #4cc38a; --cut: #f0605a; --ai: #7d93ff; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #11141a; --panel: #181c24; --ink: #e8ebf0; --muted: #98a1b0; --line: #2a303b; --soft: #202530;
+  --signal: #4cc38a; --cut: #f0605a; --ai: #7d93ff; color-scheme: dark; }
+body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15px; }
+.wrap { max-width: 1400px; margin: 0 auto; padding-block: 24px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 20px; }
+h1 { margin: 0; font-size: 26px; font-weight: 600; text-wrap: balance; }
+.lede { margin: 6px 0 0; color: var(--muted); max-width: 72ch; line-height: 1.5; }
+.main { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); gap: 24px; align-items: start; }
+.graph { min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; }
+.graph svg { display: block; width: 100%; min-width: 640px; height: auto; }
+.side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.side h2 { margin: 0; font-size: 18px; font-weight: 600; }
+.kind { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.card .top { display: flex; justify-content: space-between; gap: 12px; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.card .top b { color: var(--cut); font-weight: 500; }
+.card p { margin: 0; line-height: 1.5; }
+.card .root { color: var(--muted); font-size: 14px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: 500 12px var(--mono); padding: 3px 8px; border-radius: 12px; background: var(--soft); color: var(--ink); border: 1px solid var(--line); cursor: pointer; }
+.chip.ok { color: var(--signal); border-color: color-mix(in srgb, var(--signal) 50%, var(--line)); cursor: default; }
+.chip:focus-visible, button:focus-visible { outline: 2px solid var(--ai); outline-offset: 2px; }
+.back { align-self: flex-start; font: inherit; font-size: 13px; color: var(--ai); background: none; border: 0; padding: 0; cursor: pointer; }
+.empty { color: var(--muted); line-height: 1.5; }
+.foot { color: var(--muted); font-size: 13px; line-height: 1.5; max-width: 90ch; }
+svg .edge { stroke: var(--line); stroke-width: 1.5; fill: none; }
+svg .edge.ai { stroke: var(--ai); stroke-opacity: .55; }
+svg .edge.hot { stroke: var(--cut); stroke-width: 2.5; stroke-opacity: .9; }
+svg .node { cursor: pointer; }
+svg .node rect, svg .node circle { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; }
+svg .node.agent rect { stroke: var(--ai); }
+svg .node.planned rect { stroke-dasharray: 5 4; }
+svg .node.sel rect, svg .node.sel circle { stroke: var(--ai); stroke-width: 3; }
+svg .node.hit circle, svg .node.hit rect { stroke: var(--cut); stroke-width: 2.5; }
+svg .node.phone circle { fill: var(--signal); stroke: var(--panel); }
+svg .node.phone.nosig circle { fill: var(--panel); stroke: var(--muted); }
+svg .label { font: 600 13px var(--sans); fill: var(--ink); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+svg .small { font: 400 11px var(--mono); fill: var(--muted); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+svg .pid { font: 600 10px var(--mono); fill: #fff; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+svg .nosig .pid { fill: var(--muted); }
+svg .row { font: 500 11px var(--mono); fill: var(--muted); letter-spacing: .06em; }
+@media (max-width: 900px) { .main { grid-template-columns: minmax(0, 1fr); } }
+</style>
+
+<div class="wrap">
+  <div>
+    <h1>The network, its AI agents, and everything they learned</h1>
+    <p class="lede" id="lede"></p>
+  </div>
+  <div class="main">
+    <div class="graph"><svg id="g" role="img" aria-label="Cell network with its AI agents, towers and phones"></svg></div>
+    <div class="side" id="side"></div>
+  </div>
+  <p class="foot">Smartscape holds the live map: OpenPipeline turns each simulator log into network, tower and phone nodes and the links between them. Grail holds every finding: each answer the AI agent gave, tied to the problem and the towers involved. Dashed agents are the next ones we would add for the multi-agent build.</p>
+</div>
+
+<script>/*DATA*/</script>
+<script>
+(() => {
+  const D = window.DEMO, NS = "http://www.w3.org/2000/svg", svg = document.getElementById("g");
+  const W = 1000, H = 620; svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); (parent || svg).appendChild(e); return e; };
+  const when = new Date(D.recordedAt);
+  document.getElementById("lede").textContent = `A snapshot from Dynatrace (${D.tenant}), ${when.toLocaleDateString("en-US", { month: "short", day: "numeric" })}. Click any agent, tower or phone to see what Dynatrace knows about it.`;
+
+  const AGENTS = [
+    { id: "ops", name: "Ops agent", sub: "Claude · live", live: true, about: "Watches Dynatrace for problems. Reads the network from Grail, asks Claude what happened, and rolls the model back when it is unsafe. Every step is traced." },
+    { id: "app", name: "App-experience agent", sub: "next", about: "Would watch WhatsApp and Instagram quality per phone and file a finding when it drops. The view Meta asked about." },
+    { id: "policy", name: "Policy agent", sub: "next", about: "Would approve or block every fix before it runs, and record why. The human-oversight step Cohort 3 asks for." },
+  ];
+  const towers = D.towers.map(([name], i) => ({ id: name, i }));
+  const last = D.frames[D.frames.length - 1];
+  const phones = last.p.map(([id, , , state, links]) => ({ id, state, tower: links.length ? D.towers[links[0]][0] : null }));
+  const hits = {}; for (const f of D.findings) for (const [t, n] of Object.entries(f.towers)) hits[t] = (hits[t] || 0) + n;
+
+  // Positions: four rows, top to bottom.
+  const pos = {};
+  AGENTS.forEach((a, i) => pos["a:" + a.id] = [W * (i + 1) / (AGENTS.length + 1), 70]);
+  pos.net = [W / 2, 205];
+  towers.forEach((t, i) => pos["t:" + t.id] = [70 + i * (W - 140) / (towers.length - 1), 345]);
+  const byTower = {}; phones.forEach((p) => { const k = p.tower || "-"; (byTower[k] = byTower[k] || []).push(p); });
+  phones.forEach((p) => {
+    const group = byTower[p.tower || "-"], j = group.indexOf(p);
+    const [tx] = p.tower ? pos["t:" + p.tower] : [W - 50];
+    pos["p:" + p.id] = [tx + (j % 3 - 1) * 30, 470 + Math.floor(j / 3) * 34];
+  });
+
+  let selected = null;
+  function draw() {
+    svg.innerHTML = "";
+    el("text", { x: 16, y: 26, class: "row" }).textContent = "AI AGENTS";
+    el("text", { x: 16, y: 166, class: "row" }).textContent = "NETWORK";
+    el("text", { x: 16, y: 300, class: "row" }).textContent = "TOWERS";
+    el("text", { x: 16, y: 438, class: "row" }).textContent = "PHONES";
+    const hot = selected && selected.kind === "finding" ? Object.keys(D.findings[selected.i].towers) : [];
+    const line = (a, b, cls) => el("line", { x1: pos[a][0], y1: pos[a][1], x2: pos[b][0], y2: pos[b][1], class: "edge " + (cls || "") });
+    AGENTS.forEach((a) => line("a:" + a.id, "net", a.live ? "ai" : ""));
+    for (const t of Object.keys(hits)) if (pos["t:" + t]) el("path", { d: `M${pos["a:ops"][0]} ${pos["a:ops"][1] + 24} Q ${pos["t:" + t][0]} 150 ${pos["t:" + t][0]} ${pos["t:" + t][1] - 24}`, class: "edge ai" + (hot.includes(t) ? " hot" : ""), "stroke-dasharray": "2 5" });
+    towers.forEach((t) => line("net", "t:" + t.id, hot.includes(t.id) ? "hot" : ""));
+    phones.forEach((p) => { if (p.tower) line("p:" + p.id, "t:" + p.tower); });
+
+    const node = (key, cls, sel, onClick) => { const g = el("g", { class: "node " + cls + (sel ? " sel" : ""), tabindex: 0, role: "button", transform: `translate(${pos[key][0]} ${pos[key][1]})` }); g.addEventListener("click", onClick); g.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }); return g; };
+    AGENTS.forEach((a) => {
+      const g = node("a:" + a.id, "agent" + (a.live ? "" : " planned"), selected && selected.kind === "agent" && selected.id === a.id, () => pick({ kind: "agent", id: a.id }));
+      el("rect", { x: -95, y: -26, width: 190, height: 52, rx: 8 }, g);
+      el("text", { y: -8, class: "label" }, g).textContent = a.name;
+      el("text", { y: 11, class: "small" }, g).textContent = a.sub;
+    });
+    const n = node("net", "", selected && selected.kind === "net", () => pick({ kind: "net" }));
+    el("rect", { x: -110, y: -26, width: 220, height: 52, rx: 8 }, n);
+    el("text", { y: -8, class: "label" }, n).textContent = "Cell network";
+    el("text", { y: 11, class: "small" }, n).textContent = `${D.findings.length} problems · ${towers.length} towers`;
+    towers.forEach((t) => {
+      const g = node("t:" + t.id, (hot.includes(t.id) ? "hit" : ""), selected && selected.kind === "tower" && selected.id === t.id, () => pick({ kind: "tower", id: t.id }));
+      el("circle", { r: 24 }, g);
+      el("text", { class: "label" }, g).textContent = t.id;
+      el("text", { y: 38, class: "small" }, g).textContent = hits[t.id] ? `${hits[t.id]} cut off` : "no findings";
+    });
+    phones.forEach((p) => {
+      const g = node("p:" + p.id, "phone" + (p.tower ? "" : " nosig"), selected && selected.kind === "phone" && selected.id === p.id, () => pick({ kind: "phone", id: p.id }));
+      el("circle", { r: 12 }, g);
+      el("text", { class: "pid" }, g).textContent = p.id;
+    });
+  }
+
+  const side = document.getElementById("side");
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const timeOf = (s) => new Date(s).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  function findingCard(f, i) {
+    const towersHtml = Object.entries(f.towers).map(([t, n]) => `<button class="chip" data-tower="${esc(t)}">Tower ${esc(t)} · ${n} cut off</button>`).join("");
+    return `<div class="card"><div class="top"><b>${esc(f.problem)}</b><span>${timeOf(f.at)}</span></div>
+      <p>${esc(f.summary)}</p>${f.root ? `<p class="root">${esc(f.root)}</p>` : ""}
+      <div class="chips">${f.acted ? '<span class="chip ok">Rolled back to v1</span>' : `<span class="chip">${esc(f.action || "advised")}</span>`}${towersHtml}<button class="chip" data-finding="${i}">Show on map</button></div>
+      <div class="kind">Claude · ${f.secs} s · ${f.tokens.toLocaleString("en-US")} tokens · $${f.cost.toFixed(4)}</div></div>`;
+  }
+  function render() {
+    let html = "";
+    if (!selected || selected.kind === "finding") {
+      html = `<h2>Findings</h2><div class="kind">Saved in Grail · ${D.findings.length} so far</div>` + D.findings.map(findingCard).join("");
+    } else {
+      html = `<button class="back" id="back">← All findings</button>`;
+      if (selected.kind === "agent") {
+        const a = AGENTS.find((x) => x.id === selected.id);
+        html += `<h2>${esc(a.name)}</h2><div class="kind">${a.live ? "AI agent · live" : "AI agent · planned"}</div><p class="empty">${esc(a.about)}</p>` + (a.live ? D.findings.map(findingCard).join("") : "");
+      } else if (selected.kind === "net") {
+        html += `<h2>Cell network</h2><div class="kind">Smartscape node · CUSTOM_CELL_NETWORK</div><p class="empty">${towers.length} towers and ${phones.length} phones belong to it. Every problem below was raised on it by OpenPipeline when the safety rule broke.</p>` + D.findings.map(findingCard).join("");
+      } else if (selected.kind === "tower") {
+        const fs = D.findings.map((f, i) => [f, i]).filter(([f]) => f.towers[selected.id]);
+        const now = phones.filter((p) => p.tower === selected.id).length;
+        html += `<h2>Tower ${esc(selected.id)}</h2><div class="kind">Smartscape node · CUSTOM_CELL_TOWER · ${now} phone${now === 1 ? "" : "s"} connected now</div>` +
+          (fs.length ? `<p class="empty">Phones next to this tower were cut off in ${fs.length} problem${fs.length === 1 ? "" : "s"}.</p>` + fs.map(([f, i]) => findingCard(f, i)).join("") : `<p class="empty">No findings mention this tower.</p>`);
+      } else if (selected.kind === "phone") {
+        const key = `phone-${String(selected.id).padStart(2, "0")}`, short = String(selected.id).padStart(2, "0");
+        const p = phones.find((x) => x.id === selected.id);
+        const fs = D.findings.map((f, i) => [f, i]).filter(([f]) => f.summary.includes(key) || new RegExp(`phone-\\d+[^.]*\\b${short}\\b`).test(f.summary));
+        html += `<h2>${key}</h2><div class="kind">Smartscape node · CUSTOM_MOBILE_PHONE · ${p.tower ? "on tower " + p.tower : "no signal"}</div>` +
+          (fs.length ? fs.map(([f, i]) => findingCard(f, i)).join("") : `<p class="empty">No findings name this phone.</p>`);
+      }
+    }
+    side.innerHTML = html;
+    side.querySelectorAll("[data-tower]").forEach((b) => b.onclick = () => pick({ kind: "tower", id: b.dataset.tower }));
+    side.querySelectorAll("[data-finding]").forEach((b) => b.onclick = () => pick({ kind: "finding", i: +b.dataset.finding }));
+    const back = document.getElementById("back"); if (back) back.onclick = () => pick(null);
+  }
+  function pick(s) { selected = s; draw(); render(); }
+  pick(D.findings.length ? { kind: "finding", i: 0 } : null);
+})();
+</script>

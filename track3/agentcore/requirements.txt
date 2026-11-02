@@ -1,0 +1,5 @@
+bedrock-agentcore
+boto3
+cedarpy
+opentelemetry-sdk
+opentelemetry-exporter-otlp-proto-http

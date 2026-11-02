@@ -1,0 +1,27 @@
+{
+  "run_id": "2026-11-01T15-46-track3-compare-01",
+  "track": "track-3",
+  "units": [
+    "compare"
+  ],
+  "target": {
+    "compare": "5 agent models scored under one configuration: frozen state 55152d10dade, same prompts, same policies, same judge; none proposes an action that is executed"
+  },
+  "test_set_sha256": "f91eba7366d708b153f520626679841fde6f61eccd15d2b395e906159a64a48c",
+  "test_set": "scenarios/incident-v2-cutoff.json",
+  "policies_sha256": "31c4c6c58b4f7de0de967ae2f55cecc2f88e06985b5b50441228bf740d007e55",
+  "model_id": "openai.gpt-oss-120b-1:0",
+  "frozen_state_sha256": "55152d10dade0b6646fd1ad9183c2e2d05b5fb60139fcfcf2a8ef39ac605abb3",
+  "candidate_models": [
+    "openai.gpt-oss-120b-1:0",
+    "openai.gpt-oss-20b-1:0",
+    "us.amazon.nova-pro-v1:0",
+    "us.meta.llama3-3-70b-instruct-v1:0",
+    "us.deepseek.r1-v1:0"
+  ],
+  "grader": {
+    "rules": "tools/check.py on the decision records",
+    "llm_judge": "us.anthropic.claude-haiku-5-5 (Anthropic family; the agents run on OpenAI gpt-oss)"
+  },
+  "declared_at": "2026-11-01T23:46:35+00:00"
+}

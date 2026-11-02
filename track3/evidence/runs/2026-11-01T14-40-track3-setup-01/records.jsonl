@@ -1,0 +1,4 @@
+{"kind": "run_start", "purpose": "register models", "run_id": "2026-11-01T14-40-track3-setup-01", "seq": 1, "time": "2026-11-01T22:40:28.802+00:00", "trace_id": "252b6f7195104017a5e2270675f7d0cb"}
+{"changed_by": "george.yameen", "kind": "registry", "model_id": "openai.gpt-oss-120b-1:0", "run_id": "2026-11-01T14-40-track3-setup-01", "seq": 2, "status": "approved", "time": "2026-11-01T22:40:29.623+00:00", "trace_id": "252b6f7195104017a5e2270675f7d0cb"}
+{"changed_by": "george.yameen", "kind": "registry", "model_id": "us.anthropic.claude-haiku-5-5", "run_id": "2026-11-01T14-40-track3-setup-01", "seq": 3, "status": "approved", "time": "2026-11-01T22:40:30.140+00:00", "trace_id": "252b6f7195104017a5e2270675f7d0cb"}
+{"kind": "run_end", "run_id": "2026-11-01T14-40-track3-setup-01", "seq": 4, "time": "2026-11-01T22:40:30.606+00:00", "trace_id": "252b6f7195104017a5e2270675f7d0cb"}

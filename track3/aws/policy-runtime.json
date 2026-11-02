@@ -1,0 +1,109 @@
+{
+ "Version": "2012-10-17",
+ "Statement": [
+  {
+   "Sid": "Models",
+   "Effect": "Allow",
+   "Action": [
+    "bedrock:InvokeModel",
+    "bedrock:InvokeModelWithResponseStream"
+   ],
+   "Resource": [
+    "arn:aws:bedrock:*::foundation-model/*",
+    "arn:aws:bedrock:*:279760855394:inference-profile/*"
+   ]
+  },
+  {
+   "Sid": "Guardrail",
+   "Effect": "Allow",
+   "Action": "bedrock:ApplyGuardrail",
+   "Resource": "arn:aws:bedrock:us-east-2:279760855394:guardrail/lr4zff1274hc"
+  },
+  {
+   "Sid": "AuditLog",
+   "Effect": "Allow",
+   "Action": [
+    "logs:CreateLogStream",
+    "logs:PutLogEvents",
+    "logs:DescribeLogStreams"
+   ],
+   "Resource": "arn:aws:logs:us-east-2:279760855394:log-group:/bb26/team04/track3:*"
+  },
+  {
+   "Sid": "RuntimeLogs",
+   "Effect": "Allow",
+   "Action": [
+    "logs:CreateLogGroup",
+    "logs:CreateLogStream",
+    "logs:PutLogEvents",
+    "logs:DescribeLogStreams",
+    "logs:DescribeLogGroups"
+   ],
+   "Resource": [
+    "arn:aws:logs:us-east-2:279760855394:log-group:/aws/bedrock-agentcore/runtimes/*",
+    "arn:aws:logs:us-east-2:279760855394:log-group:*"
+   ]
+  },
+  {
+   "Sid": "Telemetry",
+   "Effect": "Allow",
+   "Action": [
+    "xray:PutTraceSegments",
+    "xray:PutTelemetryRecords",
+    "cloudwatch:PutMetricData"
+   ],
+   "Resource": "*"
+  },
+  {
+   "Sid": "Tables",
+   "Effect": "Allow",
+   "Action": [
+    "dynamodb:GetItem",
+    "dynamodb:PutItem",
+    "dynamodb:Query"
+   ],
+   "Resource": [
+    "arn:aws:dynamodb:us-east-2:279760855394:table/bb26-team04-track3-records",
+    "arn:aws:dynamodb:us-east-2:279760855394:table/bb26-team04-track3-registry",
+    "arn:aws:dynamodb:us-east-2:279760855394:table/bb26-team04-track3-approvals"
+   ]
+  },
+  {
+   "Sid": "Evidence",
+   "Effect": "Allow",
+   "Action": [
+    "s3:PutObject",
+    "s3:GetObject"
+   ],
+   "Resource": [
+    "arn:aws:s3:::bb26-p-team04-data-279760855394-use2/evidence/*",
+    "arn:aws:s3:::bb26-p-team04-data-279760855394-use2/agentcore/*"
+   ]
+  },
+  {
+   "Sid": "Gateway",
+   "Effect": "Allow",
+   "Action": "bedrock-agentcore:InvokeGateway",
+   "Resource": "arn:aws:bedrock-agentcore:us-east-2:279760855394:gateway/track3-gw-*"
+  },
+  {
+   "Sid": "WorkloadIdentity",
+   "Effect": "Allow",
+   "Action": [
+    "bedrock-agentcore:GetWorkloadAccessToken",
+    "bedrock-agentcore:GetWorkloadAccessTokenForJWT",
+    "bedrock-agentcore:GetWorkloadAccessTokenForUserId"
+   ],
+   "Resource": [
+    "arn:aws:bedrock-agentcore:us-east-2:279760855394:workload-identity-directory/default",
+    "arn:aws:bedrock-agentcore:us-east-2:279760855394:workload-identity-directory/default/workload-identity/*"
+   ]
+  },
+  {
+   "Sid": "Secrets",
+   "Effect": "Allow",
+   "Action": "secretsmanager:GetSecretValue",
+   "Resource": "arn:aws:secretsmanager:us-east-2:279760855394:secret:team04/track3-*"
+  }
+ ]
+}

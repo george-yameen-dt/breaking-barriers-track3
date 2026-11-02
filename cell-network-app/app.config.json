@@ -1,0 +1,29 @@
+{
+  "$schema": "./.dt-app/app.config.schema.json",
+  "environmentUrl": "https://yqs73977.sprint.apps.dynatracelabs.com/",
+  "app": {
+    "name": "Cell Network Live",
+    "version": "1.0.9",
+    "description": "Live cell network sim: towers, phones, and whether model v2 is safe to ship",
+    "id": "my.cell.network.live",
+    "icon": "./ui/assets/cell-network-icon.svg",
+    "scopes": [
+      {
+        "name": "storage:logs:read",
+        "comment": "Simulator steps sent as logs (service.name mobile-env)"
+      },
+      {
+        "name": "storage:buckets:read",
+        "comment": "Read access to Grail buckets"
+      },
+      {
+        "name": "storage:events:read",
+        "comment": "Problems raised from the OpenPipeline safety rule"
+      },
+      {
+        "name": "storage:smartscape:read",
+        "comment": "Cell network topology built by OpenPipeline"
+      }
+    ]
+  }
+}
