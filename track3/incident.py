@@ -17,5 +17,13 @@ Read the Dynatrace problem and the live network state. Reply with JSON only:
 
 
 def parse_json(text: str) -> dict:
-    m = re.search(r"\{.*\}", text, re.S)
-    return json.loads(m.group(0)) if m else {}
+    """The first JSON object in the text: a model may write prose, or a second object, around the one that was asked for."""
+    decoder = json.JSONDecoder()
+    for m in re.finditer(r"\{", text):
+        try:
+            obj, _ = decoder.raw_decode(text[m.start():])
+        except ValueError:
+            continue
+        if isinstance(obj, dict):
+            return obj
+    return {}
