@@ -1,5 +1,5 @@
 """The healthy twin scenario: the organisers' maveric_4cell sample (the RL kit's Viavi scenario, no anomalies) with lower
-phone targets, so its QoS Score starts good. Stan's team04-track3-4cell-faults is the same sample plus two faults.
+phone targets, so its QoS Score starts good. the team's team04-track3-4cell-faults is the same sample plus two faults.
 
 With the sample's targets (8 + 10 Mb/s per phone) the cells are full even before a fault: in run rsg-15 phones got
 about 6 of 18 Mb/s and the average UE QoS Score was about 34. Edge cases start from this healthy copy and change one value.
@@ -9,7 +9,7 @@ about 6 of 18 Mb/s and the average UE QoS Score was about 34. Edge cases start f
     VIAVI_RSG_URL=https://<rsg>/mcp python scenarios/twin/healthy.py powercut 2,1          # edge case: + S3 power cut
 
 A pair is the two service targets in Mb/s (video call, buffered video); the video call's guaranteed floor becomes half
-its target. Everything runs on Stan's EC2 through adapters/twin_link.py, one twin run at a time: a try refuses to start
+its target. Everything runs on the team EC2 through adapters/twin_link.py, one twin run at a time: a try refuses to start
 while another run is going, and always stops its own runs.
 """
 
@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from adapters.twin_link import HELPERS, TwinLink  # noqa: E402
 
 NAME = "team04-track3-4cell-healthy"
-# Edge cases: the healthy copy plus one anomaly. The power cut is Stan's S3 failure, at 180 s (healthy-power-cut.json).
+# Edge cases: the healthy copy plus one anomaly. The power cut is the S3 failure, at 180 s (healthy-power-cut.json).
 EDGES = {"powercut": ("team04-track3-4cell-powercut", "S3 commercial power failure at 180 s", {"Power_Failures": [{
     "name": "fault-S3-power-failure", "affected_cells": "S3/B3/C1", "affected_areas": "", "trigger_fm": False,
     "delay": 180, "duration": 0, "faultType": {"type": "commercialpowerfailure", "partial_outage_duration": 0,

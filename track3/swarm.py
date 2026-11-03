@@ -3,8 +3,8 @@
   ./swarm.sh run --fault outage-C                   the swarm decides; Cedar's envelope allows or denies the change
   ./swarm.sh run --fault outage-C --pause           Capacity answers once, its model is withdrawn, the run goes on without it
   ./swarm.sh run --fault power-E-high --dynatrace   the specialists may also query Dynatrace with dtctl
-  ./swarm.sh run --twin recorded                    the Viavi twin, from Stan's saved run (offline: nothing is sent)
-  ./swarm.sh run --twin live                        the Viavi twin itself, through Stan's EC2 (needs VIAVI_RSG_URL)
+  ./swarm.sh run --twin recorded                    the Viavi twin, from the saved run (offline: nothing is sent)
+  ./swarm.sh run --twin live                        the Viavi twin itself, through the team EC2 (needs VIAVI_RSG_URL)
   ./swarm.sh run --twin live --dt send              ... and its numbers to Dynatrace, where a detector opens the problem
   ./swarm.sh run --twin attach                      attach to the run the operator's poller drives: read it, send commands, start nothing
 

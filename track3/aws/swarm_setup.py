@@ -17,7 +17,7 @@ REGION, ACCOUNT = "us-east-2", "279760855394"
 ROLE_NAME, POLICY_NAME = "team04-track3-runtime", "track3-runtime"
 ROLE_ARN = f"arn:aws:iam::{ACCOUNT}:role/bb26/{ROLE_NAME}"
 CODE = {"s3": {"bucket": "bb26-p-team04-data-279760855394-use2", "prefix": "agentcore/track3_swarm.zip"}}
-# Same VPC as the sswitalski-EC2 VM (vpc-08554422beaa5aa27): the two private subnets (NAT egress + S3 endpoint).
+# Same VPC as the team EC2 VM (vpc-08554422beaa5aa27): the two private subnets (NAT egress + S3 endpoint).
 NETWORK = {"networkMode": "VPC", "networkModeConfig": {
     "subnets": ["subnet-0d843f7aeb9ba52bf", "subnet-0a1323fea3a26488c"],
     "securityGroups": ["sg-01daf5b1c0c0300ae"]}}  # team04-track3-runtime-sg: no inbound, all outbound

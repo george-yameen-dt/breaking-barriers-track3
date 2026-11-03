@@ -36,7 +36,7 @@ HERE = Path(__file__).parent
 PROMOTION_POLICIES = HERE / "policies" / "promotion.cedar"  # changes to the agents themselves
 DT_LOGS = "https://yqs73977.sprint.apps.dynatracelabs.com/platform/classic/environment-api/v2/logs/ingest"
 DT_TRACES = "https://yqs73977.sprint.dynatracelabs.com/api/v2/otlp/v1/traces"
-# Spans go to the team's Arize space (agentic-aeric), where Arize Signal reviews the project and files issues.
+# Spans go to the team's Arize space, where Arize Signal reviews the project and files issues.
 # On AgentCore both ARIZE_SPACE_ID and ARIZE_API_KEY come from the team04/track3 secret.
 ARIZE_SPACE_ID = os.environ.get("ARIZE_SPACE_ID", "U3BhY2U6NTE5NTA6ckhYRg==")
 ARIZE_PROJECT = "bb26-hackathon"

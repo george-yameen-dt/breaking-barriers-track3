@@ -188,7 +188,7 @@ def test_capacity_cannot_switch_cells():
 
 
 # ---- governance: the one place a person says yes -----------------------------------------------------------------------
-PERSON = 'Person::"aeric.walls"'
+PERSON = 'Person::"risk-owner-01"'
 
 
 @pytest.mark.parametrize("action,resource", [("activate_policy", 'Policy::"swarm"'), ("activate_guardrail", 'Guardrail::"track3"')])

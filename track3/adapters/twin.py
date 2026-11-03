@@ -1,7 +1,7 @@
 """The twin adapter: the swarm on the Viavi AI RSG digital twin (team04's 4-cell scenario, cells S1 to S4).
 
 Same interface as adapters/replay.py, so the agents, their tools and the checks don't change. Two sources:
-- RecordedTwin: a saved twin run (scenarios/twin/proof-rsg-14.json, Stan's proof run). Offline: nothing is sent.
+- RecordedTwin: a saved twin run (scenarios/twin/proof-rsg-14.json, the saved proof run). Offline: nothing is sent.
 - LiveTwin: the RSG itself, through adapters/twin_link.py (SSM on the one host the RSG answers).
 
 Unlike the replay network, a change can be applied (apply), and its effect measured one window later (measure).
@@ -96,7 +96,7 @@ def snapshot(window: dict, config: dict, phones_active: float, snapshot_id: str 
             "tx_power_dbm": int(cfg["tx_power_dbm"]), "tilt_deg": int(cfg["tilt_deg"]),
             "maintenance_window": int(cfg["maintenance_window"]),
             "active_users": round(ues, 1),
-            # RRU.PrbTotDl is the load in %; older windows (Stan's recording) only have the PRB count
+            # RRU.PrbTotDl is the load in %; older windows (the saved recording) only have the PRB count
             "prb_utilization_pct": round(float(k["prb_pct"] if k.get("prb_pct") is not None else k.get("prb_dl") or 0)),
             "qos_score": _r(k.get("qos")),
             "throughput_mbps": _r(k.get("thp_dl")), "edge_throughput_mbps": None,

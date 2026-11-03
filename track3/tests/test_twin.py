@@ -1,5 +1,5 @@
 """Offline tests for the Viavi twin adapter (adapters/twin.py) and the swarm's hands (apply, verify, undo).
-No AWS, no SSM, no model calls: the twin is Stan's saved run (scenarios/twin/proof-rsg-14.json).
+No AWS, no SSM, no model calls: the twin is the saved run (scenarios/twin/proof-rsg-14.json).
 
 Run:  cd track3 && ~/.local/venvs/mobile-env/bin/python tests/test_twin.py
 """

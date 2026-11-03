@@ -1,4 +1,4 @@
-"""The line to the Viavi AI RSG twin: SSM Run Command on the one host the RSG answers (Stan's EC2), or LocalLink
+"""The line to the Viavi AI RSG twin: SSM Run Command on the one host the RSG answers (the team EC2), or LocalLink
 in-process when the code runs on that host.
 
 Each call sends a short Python program to that host (AWS-RunShellScript). It calls the RSG's MCP tools (JSON-RPC

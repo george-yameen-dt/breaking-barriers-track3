@@ -23,7 +23,7 @@ INGEST = "https://yqs73977.sprint.apps.dynatracelabs.com/platform/classic/enviro
 ENV_FILE = Path.home() / ".bindplane" / ".env"
 SERVICE = "viavi-twin"
 NETWORK, NETWORK_NAME = "viavi-twin-team04", "Viavi twin (team04)"
-ALERT_PHONES = 13.0  # in Stan's saved run: 9-10 before the S3 power failure, 16 after it, 12 after the fix
+ALERT_PHONES = 13.0  # in the saved run: 9-10 before the S3 power failure, 16 after it, 12 after the fix
 HEARTBEAT_S = 30
 
 
