@@ -48,7 +48,7 @@ def test_a_refused_attach_is_a_clean_refusal_not_a_crash(monkeypatch):
     cp.run_id = "r"
     cp.policy_pin.return_value = None  # nothing pinned yet
     monkeypatch.setattr(cloud, "network_for", refuse)
-    out = cloud._handle(cp, "swarm", "orchestrator", {"fault": "x", "taken_at": "t"})
+    out = cloud._handle(cp, "swarm", "orchestrator", {"fault": "outage-C", "taken_at": "t"})
     assert out["refused"] is True and "tools-approved-only" in out["error"]
 
 
@@ -59,7 +59,7 @@ def test_a_swarm_run_under_an_unapproved_policy_is_refused_before_it_touches_the
     cp.run_id = "r"
     cp.policy_pin.return_value = "sha256:" + "0" * 64  # a risk owner pinned some other file
     monkeypatch.setattr(cloud, "network_for", lambda *a, **k: (_ for _ in ()).throw(AssertionError("the network was touched")))
-    out = cloud._handle(cp, "swarm", "orchestrator", {"fault": "x", "taken_at": "t"})
+    out = cloud._handle(cp, "swarm", "orchestrator", {"fault": "outage-C", "taken_at": "t"})
     assert out["refused"] is True and "approved" in out["error"]
     assert [c for c in cp.record.call_args_list if c.args and c.args[0] == "policy_pin_checked"], "the mismatch is on the record"
 
@@ -72,5 +72,31 @@ def test_a_worker_runtime_does_not_check_the_pin_itself(monkeypatch):
     cp.run_id = "r"
     cp.policy_pin.return_value = "sha256:" + "0" * 64
     monkeypatch.setattr(cloud, "network_for", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("past the pin check")))
-    out = cloud._handle(cp, "specialist", "capacity", {"fault": "x", "taken_at": "t"})
+    out = cloud._handle(cp, "specialist", "capacity", {"fault": "outage-C", "taken_at": "t"})
     assert "past the pin check" in out["error"]
+
+
+def test_run_start_is_the_first_record_of_an_orchestrator_run(monkeypatch):
+    """The trace check wants the run to begin with run_start, even when the first thing that happens is a refusal."""
+    from unittest.mock import MagicMock
+
+    from contracts import Refused
+
+    cp = MagicMock()
+    cp.run_id = "r"
+    cp.policy_pin.return_value = None
+    monkeypatch.setattr(cloud, "network_for", lambda *a, **k: (_ for _ in ()).throw(Refused("no")))
+    cloud._handle(cp, "swarm", "orchestrator", {"fault": "outage-C", "taken_at": "t", "network": "viavi", "twin_scenario": SCENARIO})
+    kinds = [c.args[0] for c in cp.record.call_args_list]
+    assert kinds[0] == "run_start" and kinds[-1] == "run_end", kinds
+
+
+def test_a_pin_mismatch_still_ends_the_run_on_the_record(monkeypatch):
+    from unittest.mock import MagicMock
+
+    cp = MagicMock()
+    cp.run_id = "r"
+    cp.policy_pin.return_value = "sha256:" + "0" * 64
+    out = cloud._handle(cp, "swarm", "orchestrator", {"fault": "outage-C", "taken_at": "t"})
+    kinds = [c.args[0] for c in cp.record.call_args_list]
+    assert out["refused"] and kinds == ["run_start", "policy_pin_checked", "run_end"], kinds

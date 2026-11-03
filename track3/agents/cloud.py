@@ -20,6 +20,8 @@ import change_control
 import checkpoint
 import telemetry
 from adapters.replay import ReplayNetwork
+from adapters.replay import FAULTS
+from adapters.twin import SCENARIOS as TWIN_SCENARIOS
 from adapters.twin import open_frozen, open_twin
 from adapters.twin_link import HttpLink
 from agents.governance import POLICIES, AgentFailed, SwarmCheckpoint, run_agent
@@ -107,10 +109,24 @@ def network_for(cp, payload: dict, run_id: str):
     return ReplayNetwork(payload["fault"], run_id, payload["taken_at"])
 
 
+def _fault_file(payload: dict) -> Path:
+    """The scenario file this run is on, known from the payload (so run_start can be the first record, before the network is read)."""
+    if payload.get("network") == "viavi":
+        return TWIN_SCENARIOS / f"{payload['twin_scenario']}.json"
+    return FAULTS / f"{payload['fault']}.json"
+
+
 def _handle(cp, mode: str, role: str, payload: dict) -> dict:
     run_id = cp.run_id
+    started = ended = False
     try:
-        if mode == "swarm":  # the orchestrator's run start: the policy loaded here must be the one a risk owner approved
+        if mode == "swarm":  # the orchestrator's run begins with run_start, then the pin: the policy loaded here must be the approved one
+            cp.record("run_start", mode="swarm", where="AgentCore: one runtime per agent", fault=payload["fault"],
+                      fault_sha256=_sha(_fault_file(payload)), policies_sha256=_sha(POLICIES), commit=payload.get("commit", ""),
+                      problem_id=payload.get("problem_id", ""), affected_cells=payload.get("affected_cells", []),
+                      declared=bool(payload.get("declared")), declared_s3_last_modified=payload.get("declared_s3", ""),
+                      operator=payload.get("operator", ""), runtimes={r: _runtime_arn(r) for r in (*SPECIALISTS, CRITIC)})
+            started = True
             change_control.check_policy_pin(cp, POLICIES.read_text())
         net = network_for(cp, payload, run_id)  # inside the try: a refused read of the network is a refusal, not a crash
         if mode == "swarm" and payload.get("network") == "viavi":  # the workers rebuild this network from what it has read
@@ -129,11 +145,6 @@ def _handle(cp, mode: str, role: str, payload: dict) -> dict:
             assessments = assess_proposals(run)
             return {"assessments": assessments, "critic_checked": sorted(run.critic_checked)}
         # mode "swarm": this runtime is the orchestrator
-        cp.record("run_start", mode="swarm", where="AgentCore: one runtime per agent", fault=payload["fault"],
-                  fault_sha256=_sha(net.fault_path), policies_sha256=_sha(POLICIES), commit=payload.get("commit", ""),
-                  problem_id=payload.get("problem_id", ""), affected_cells=payload.get("affected_cells", []),
-                  declared=bool(payload.get("declared")), declared_s3_last_modified=payload.get("declared_s3", ""),
-                  operator=payload.get("operator", ""), runtimes={r: _runtime_arn(r) for r in (*SPECIALISTS, CRITIC)})
         outcome = "error"
         try:
             root_span_id = format(cp.root.get_span_context().span_id, "016x")
@@ -144,7 +155,10 @@ def _handle(cp, mode: str, role: str, payload: dict) -> dict:
             return {"run_id": run_id, "outcome": outcome}
         finally:
             cp.record("run_end", outcome=outcome)
+            ended = True
     except Refused as e:
+        if started and not ended:
+            cp.record("run_end", outcome=f"refused: {str(e)[:200]}")
         return {"error": str(e)[:500], "refused": True}
     except Exception as e:  # a failed agent is an answer the orchestrator records, not a crash
         cp.record("run_error", who=role, error=str(e)[:500])
