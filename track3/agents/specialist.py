@@ -34,7 +34,7 @@ def investigate(run, role: str) -> dict:
     """The specialist's own work, wherever it runs (this process or its own AgentCore runtime)."""
     cp, snap = run.cp, run.net.snapshot
     tools = run.tools_for(role)
-    system = (PROMPTS / f"{role}.md").read_text() + _dynatrace_note(tools)
+    system = (PROMPTS / f"{role}.md").read_text() + getattr(run.net, "prompt_note", "") + _dynatrace_note(tools)
     payload = {"run_id": cp.run_id, "trace_id": cp.trace_id, "alert": run.alert, "snapshot": snap}
     report = run_agent(cp, role, MODELS[role], system, json.dumps(payload), tools, validate=report_problems,
                        context_for=run.context_for, max_turns=10)
