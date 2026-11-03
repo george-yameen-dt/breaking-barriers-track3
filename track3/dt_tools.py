@@ -1,20 +1,19 @@
-"""Read-only Dynatrace access for the agents through dtctl, plus the Dynatrace for AI skills.
+"""Read-only Dynatrace access for the agents through the Dynatrace MCP server (its execute-dql tool).
 
 Every query is parsed here first (command, time window, data object, any write), so local Cedar decides on facts the
-model did not write (policies/swarm.cedar: dql-read-shape). dtctl's readonly safety level and the token's read-only
-scopes are the next fences. Skills come from the Dynatrace for AI plugin (a packaged copy in skills/ on AgentCore).
+model did not write (policies/swarm.cedar: dql-read-shape). The MCP token's read-only scopes are the next fence.
+The endpoint and token are configuration, never code: DT_MCP_URL and DT_MCP_TOKEN (DT_PLATFORM_TOKEN as a fallback),
+which AgentCore loads from the team04/track3 secret. Skills are a packaged copy in skills/.
 """
 
 import json
 import os
 import re
-import subprocess
+import urllib.request
 from pathlib import Path
 
 from contracts import SKILLS, sha256_of
 
-# dtctl uses its current context (dtctl config use-context <name>); set DTCTL_CONTEXT to pin another one.
-DTCTL = ["dtctl", *(["--context", os.environ["DTCTL_CONTEXT"]] if os.environ.get("DTCTL_CONTEXT") else [])]
 DEFAULT_WINDOW_MIN = 120
 SKILL_DIRS = [Path(__file__).parent / "skills",
               *sorted((Path.home() / ".claude/plugins/cache/dynatrace-for-ai/dynatrace").glob("*/skills"), reverse=True)]
@@ -39,25 +38,49 @@ def parse_dql(dql: str) -> dict:
     return {"dql_verb": verb, "window_minutes": window, "data_object": data_object, "has_write": bool(_WRITES.search(text))}
 
 
+def _config() -> tuple:
+    return os.environ.get("DT_MCP_URL", ""), os.environ.get("DT_MCP_TOKEN") or os.environ.get("DT_PLATFORM_TOKEN", "")
+
+
+def available() -> bool:
+    """The Dynatrace tools are offered to the agents only when an endpoint and a token are configured."""
+    url, token = _config()
+    return bool(url and token)
+
+
+def _rpc(url: str, token: str, session: str, body: dict) -> tuple:
+    req = urllib.request.Request(url, data=json.dumps(body).encode(), method="POST", headers={
+        "Content-Type": "application/json", "Accept": "application/json, text/event-stream", "Authorization": f"Bearer {token}",
+        **({"Mcp-Session-Id": session} if session else {})})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        raw, sid = r.read().decode(), r.headers.get("Mcp-Session-Id", session)
+    if "id" not in body or not raw.strip():
+        return {}, sid
+    data = next((line[5:].strip() for line in raw.splitlines() if line.startswith("data:")), raw) if raw.lstrip().startswith(("event:", "data:")) else raw
+    return json.loads(data), sid
+
+
 def query(dql: str, traceparent: str = "", max_rows: int = 40) -> dict:
-    """One DQL query through dtctl. --agent fixes the JSON shape (dtctl prints another shape outside AI tools);
-    --max-field-chars 0 stops agent mode clipping long strings at 500 chars."""
-    return _dtctl_json(["query", dql], label=dql, max_rows=max_rows, traceparent=traceparent, key="dql")
-
-
-def _dtctl_json(args: list, label: str, max_rows: int = 40, traceparent: str = "", key: str = "command") -> dict:
-    env = {**os.environ, **({"TRACEPARENT": traceparent} if traceparent else {})}
+    """One DQL query through the Dynatrace MCP server (execute-dql); always an answer, never an exception."""
+    url, token = _config()
+    if not (url and token):
+        return {"dql": dql, "error": "Dynatrace MCP is not configured (DT_MCP_URL, DT_MCP_TOKEN)"}
     try:
-        out = subprocess.run([*DTCTL, *args, "-o", "json", "--agent", "--max-field-chars", "0"],
-                             capture_output=True, text=True, timeout=60, env=env)
-        reply = json.loads(out.stdout or "{}")
-    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as e:
-        return {key: label, "error": f"dtctl failed: {str(e)[:200]}"}
-    if not reply.get("ok"):
-        return {key: label, "error": f"dtctl: {str(reply.get('error') or out.stderr or out.stdout)[:300]}"}
-    body = reply.get("result") or {}
-    rows = [json.loads(line) for line in open(body["path"])] if body.get("kind") == "result-file" else body.get("records") or []
-    return {key: label, "row_count": len(rows), "rows": rows[:max_rows], "result_sha256": sha256_of(rows)}
+        _, sid = _rpc(url, token, "", {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
+            "protocolVersion": "2025-03-26", "capabilities": {}, "clientInfo": {"name": "track3-agents", "version": "1"}}})
+        _rpc(url, token, sid, {"jsonrpc": "2.0", "method": "notifications/initialized"})
+        reply, _ = _rpc(url, token, sid, {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {
+            "name": "execute-dql", "arguments": {"dqlQueryString": dql, "includeTypes": False}}})
+        if reply.get("error"):
+            return {"dql": dql, "error": f"Dynatrace MCP: {str(reply['error'])[:300]}"}
+        result = reply.get("result") or {}
+        text = "".join(c.get("text", "") for c in result.get("content") or [] if c.get("type") == "text")
+        if result.get("isError"):
+            return {"dql": dql, "error": f"Dynatrace MCP: {text[:300]}"}
+        rows = json.loads(text).get("records") or []
+    except Exception as e:  # a failed read is an answer the agent can work around
+        return {"dql": dql, "error": f"Dynatrace MCP failed: {str(e)[:200]}"}
+    return {"dql": dql, "row_count": len(rows), "rows": rows[:max_rows], "result_sha256": sha256_of(rows)}
 
 
 def _window(minutes, default: int) -> int:

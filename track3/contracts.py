@@ -70,7 +70,7 @@ TOOLS = {
         "load_skill", "Read a Dynatrace for AI skill: how Dynatrace stores problems, logs and spans, and how to query them in DQL.",
         {"name": {"type": "string", "enum": list(SKILLS)}}, ["name"]),
     "dt_query": _tool(
-        "dt_query", "Run one read-only DQL query on Dynatrace with dtctl (fetch logs, spans, events or dt.davis.problems, at most "
+        "dt_query", "Run one read-only DQL query on Dynatrace through its MCP server (fetch logs, spans, events or dt.davis.problems, at most "
         "2 hours back). Returns rows and a result_sha256 to cite.", {"dql": {"type": "string"}}, ["dql"]),
     "dt_log_patterns": _tool(
         "dt_log_patterns", "The most common network log lines of one kind in the last window_minutes, with counts.",

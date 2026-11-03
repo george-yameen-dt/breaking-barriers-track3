@@ -18,6 +18,7 @@ from botocore.config import Config
 
 import change_control
 import checkpoint
+import dt_tools
 import telemetry
 from adapters.replay import ReplayNetwork
 from adapters.replay import FAULTS
@@ -138,9 +139,9 @@ def _handle(cp, mode: str, role: str, payload: dict) -> dict:
                 return {"ok": True}
             if net.snapshot["snapshot_sha256"] != payload["snapshot_sha256"]:
                 raise AgentFailed("the snapshot rebuilt in this runtime does not match the orchestrator's")
-            return {"report": investigate(Run(cp, net, False), role)}
+            return {"report": investigate(Run(cp, net, dt_tools.available()), role)}
         if mode == "critic":
-            run = Run(cp, net, False)
+            run = Run(cp, net, dt_tools.available())
             run.reports, run.proposals, run.checks = payload["reports"], payload["proposals"], payload["checks"]
             assessments = assess_proposals(run)
             return {"assessments": assessments, "critic_checked": sorted(run.critic_checked)}
@@ -148,7 +149,7 @@ def _handle(cp, mode: str, role: str, payload: dict) -> dict:
         outcome = "error"
         try:
             root_span_id = format(cp.root.get_span_context().span_id, "016x")
-            result = run_incident(cp, net, pause_operator=payload.get("operator", "operator") if payload.get("pause") else "",
+            result = run_incident(cp, net, use_dynatrace=dt_tools.available(), pause_operator=payload.get("operator", "operator") if payload.get("pause") else "",
                                   remote=RemoteAgents({**payload, "parent_span_id": root_span_id}),
                                   alert=payload.get("alert_text", ""))
             outcome = result.get("outcome")

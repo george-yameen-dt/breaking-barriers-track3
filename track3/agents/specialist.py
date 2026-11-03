@@ -20,7 +20,7 @@ PROMPTS = Path(__file__).parent / "prompts"
 def _dynatrace_note(tools: dict) -> str:
     if "dt_query" not in tools:
         return "\n\nDynatrace tools are not available in this run: work from the snapshot and your network tools."
-    return ("\n\nDynatrace tools are available (dtctl, read-only): dt_problems, dt_log_patterns, dt_query, and load_skill for "
+    return ("\n\nDynatrace tools are available (through the Dynatrace MCP server, read-only): dt_problems, dt_log_patterns, dt_query, and load_skill for "
             "the Dynatrace for AI skills (dt-dql-essentials, dt-obs-logs, dt-obs-problems, dt-obs-tracing). For every DQL "
             "result you rely on, add {\"dql\": ..., \"result_sha256\": ...} to that finding's dql_refs.")
 
