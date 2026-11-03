@@ -1,7 +1,7 @@
 {
- "availability": "arn:aws:bedrock-agentcore:us-east-2:279760855394:runtime/track3_availability-GfvSHvHLn2",
  "coverage": "arn:aws:bedrock-agentcore:us-east-2:279760855394:runtime/track3_coverage-ZqGXks3wRA",
  "capacity": "arn:aws:bedrock-agentcore:us-east-2:279760855394:runtime/track3_capacity-DxDo8e9uiQ",
+ "availability": "arn:aws:bedrock-agentcore:us-east-2:279760855394:runtime/track3_availability-GfvSHvHLn2",
  "risk": "arn:aws:bedrock-agentcore:us-east-2:279760855394:runtime/track3_risk-12gBzqCI1R",
  "orchestrator": "arn:aws:bedrock-agentcore:us-east-2:279760855394:runtime/track3_orchestrator-F83MWY28u6"
 }
