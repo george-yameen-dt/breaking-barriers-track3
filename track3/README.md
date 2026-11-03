@@ -57,7 +57,6 @@ AWS setup files are in `aws/` (IAM policies, Cedar rules, the tools Lambda); the
 | Five agents, dev run (not declared; add `--approve-as test-unattended` for no person) | `./swarm.sh run --cloud --fault outage-C` |
 | Simulator (the network). Optional: the swarm reads a recorded snapshot today (`adapters/replay.py`), not the live simulator | `cd ../practice && ./demo.sh --story` |
 | Register the models (also restores a model the Signal gate withdrew) | `./track3.sh setup` |
-| Freeze one real outage as a test set (once) | `./track3.sh freeze` |
 | Arize Signal gate: an open critical/high Signal issue withdraws the agent model | `./track3.sh signal [--watch 60] [--dry-run]` |
 | Register an agent change (a prompt version) as a candidate | `./track3.sh register-prompt --agent network-agent --version v2` |
 | Promote it: only an AI engineer's `yes` with passing evidence (policies/promotion.cedar) | `./track3.sh promote --agent network-agent --version v2 --role ai_engineer --experiment-run <run_id>` |

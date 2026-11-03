@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 BUCKET=bb26-p-team04-data-279760855394-use2
 rm -rf build_swarm track3_swarm.zip && mkdir -p build_swarm/policies build_swarm/scenarios
 ~/.local/bin/uv pip install --python-platform aarch64-manylinux2014 --python-version 3.12 --target build_swarm --only-binary=:all: -r requirements.txt -q
-cp main.py ../agent_loop.py ../checkpoint.py ../policy.py ../telemetry.py ../gateway.py ../incident.py ../contracts.py ../rfmodel.py ../risk_checks.py ../dt_tools.py build_swarm/
+cp main.py ../agent_loop.py ../checkpoint.py ../policy.py ../telemetry.py ../incident.py ../contracts.py ../rfmodel.py ../risk_checks.py ../dt_tools.py build_swarm/
 cp -R ../agents ../adapters build_swarm/
 cp ../policies/swarm.cedar ../policies/promotion.cedar ../policies/tools.json build_swarm/policies/
 cp -R ../scenarios/faults ../scenarios/swarm-layout.json ../scenarios/twin build_swarm/scenarios/

@@ -33,9 +33,6 @@ from promotion import PromptRegistry, blocking_issue_count, experiment_passed, p
 from tools import arize_signal, check
 
 HERE = Path(__file__).parent
-PRACTICE = HERE.parent / "practice"
-sys.path.insert(0, str(PRACTICE))
-import agent as ops  # noqa: E402  reuse the Dynatrace reads from the cell demo
 
 SCENARIO = HERE / "scenarios" / "incident-v2-cutoff.json"
 BUCKET = os.environ.get("BUCKET", "bb26-p-team04-data-279760855394-use2")
@@ -168,26 +165,6 @@ def cmd_signal(args) -> None:
         time.sleep(args.watch)
 
 
-FROZEN = HERE / "scenarios" / "frozen-state.json"
-
-
-def cmd_freeze(_args) -> None:
-    """Captures one real outage from Dynatrace as a frozen test set (scenarios/frozen-state.json)."""
-    if FROZEN.exists():
-        sys.exit(f"{FROZEN.name} already exists; a frozen test set is never rewritten.")
-    import time
-    for _ in range(36):
-        problem, state = ops.open_problem(), ops.network_state()
-        if problem and int(state.get("phones_dropped") or 0) > 0:
-            break
-        print("  waiting for an open problem with phones cut off...")
-        time.sleep(10)
-    else:
-        sys.exit("No outage to freeze.")
-    FROZEN.write_text(json.dumps({"problem": problem["display_id"], "captured_at": datetime.now(timezone.utc).isoformat(), **state}, indent=2) + "\n")
-    print(f"frozen {FROZEN.name} sha256 {file_sha(FROZEN)}")
-
-
 PROMPTS = HERE / "prompts"
 
 
@@ -250,7 +227,6 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("setup")
-    sub.add_parser("freeze")
     s = sub.add_parser("signal")
     s.add_argument("--watch", type=int, default=0, help="check again every N seconds")
     s.add_argument("--dry-run", action="store_true", help="report blocking issues, change nothing")
@@ -265,7 +241,7 @@ def main() -> None:
     pr.add_argument("--approve-as", default="", help="unattended test only: approve in this name instead of asking")
     pr.add_argument("--as-agent", action="store_true", help="live deny: the agent asks to promote itself")
     a = ap.parse_args()
-    {"setup": cmd_setup, "freeze": cmd_freeze, "signal": cmd_signal, "register-prompt": cmd_register_prompt, "promote": cmd_promote}[a.cmd](a)
+    {"setup": cmd_setup, "signal": cmd_signal, "register-prompt": cmd_register_prompt, "promote": cmd_promote}[a.cmd](a)
 
 
 if __name__ == "__main__":
