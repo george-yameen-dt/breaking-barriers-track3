@@ -13,8 +13,6 @@ Neighbours are not predicted: the twin measures them one window after the change
 is undone.
 """
 
-import csv
-import io
 import json
 import re
 import math
@@ -65,29 +63,6 @@ def discover(window: dict) -> dict:
     return dict(sorted(found.items(), key=order)) or {c: full(c) for c in CELLS}
 
 
-def scenario_settings(cfg: dict) -> dict:
-    """short cell id -> the tx_power_dbm and tilt_deg a run of this scenario (its RSG config) starts with: the CSV
-    Import's Tilt and Power columns, else the cell profile's power and tilt."""
-    profile = next((c for p in cfg["Cells"]["Cell_Profiles"] for c in p["cellsConfig"]), {})
-    rows = csv.DictReader(io.StringIO(cfg["Cells"]["Import"]["CSV Import"].strip()))
-    num = lambda v, default: float(v) if v not in ("", None) else default  # noqa: E731
-    return {short(r["Cell"]): {"tx_power_dbm": num(r.get("Power"), profile.get("power")),
-                               "tilt_deg": num(r.get("Tilt"), profile.get("tilt"))} for r in rows}
-
-
-def o1_settings(events: list, start: dict) -> dict:
-    """The settings now: start, changed by the twin's own O1_update events in time order (configuredMaxTxPower in dBm,
-    digitalTilt in tenths of a degree). The twin reports transmit power, but never tilt: this is where tilt comes from."""
-    now = {c: dict(v) for c, v in start.items()}
-    for e in sorted((e for e in events if e.get("event_type") == "O1_update"), key=lambda e: float(e["time"])):
-        for key, value in re.findall(r"(\w+)=(-?[\d.]+)", str(e.get("description", ""))):
-            if key in ("configuredMaxTxPower", "digitalTilt"):
-                now.setdefault(short(e.get("cell")), {})[
-                    "tx_power_dbm" if key == "configuredMaxTxPower" else "tilt_deg"] = (
-                    float(value) if key == "configuredMaxTxPower" else float(value) / 10)
-    return now
-
-
 def full(cell_id) -> str:
     return f"{short(cell_id)}/B3/C1"
 
@@ -113,17 +88,12 @@ def snapshot(window: dict, config: dict, phones_active: float, snapshot_id: str 
     for c in config:
         k, cfg = by.get(c, {}), config[c]
         ues = float(k.get("ues") or 0.0)
-        power = k.get("power")  # the twin's own Viavi.Radio.power: -999 when the cell has no power
-        on = (power if power is not None else -999) > -900 and ues > 0
+        on = (k.get("power") if k.get("power") is not None else -999) > -900 and ues > 0
         frac = uncovered_fraction(k.get("rsrp_mean"), k.get("rsrp_p10"))
-        # phones counted one by one when the window has them (twin_link.window); older recordings only have the model
-        dropped = k["no_service"] if "no_service" in k else round(ues * frac, 1) if frac is not None else 0.0
         cells.append({
             "cell_id": c, "enabled": int(on), "classification": cfg["classification"], "criticality": criticality_of(c),
             "cell_full": names.get(c, full(c)), "pci": k.get("pci"), "nrcgi": k.get("nrcgi"), "frequency": k.get("frequency"),
-            # measured, never the planned value: None when the twin reports no transmit power
-            "tx_power_dbm": int(round(power)) if power is not None and power > -900 else None,
-            "tilt_deg": int(round(cfg["tilt_deg"])) if cfg.get("tilt_deg") is not None else None,
+            "tx_power_dbm": int(cfg["tx_power_dbm"]), "tilt_deg": int(cfg["tilt_deg"]),
             "maintenance_window": int(cfg["maintenance_window"]),
             "active_users": round(ues, 1),
             # RRU.PrbTotDl is the load in %; older windows (Stan's recording) only have the PRB count
@@ -133,21 +103,15 @@ def snapshot(window: dict, config: dict, phones_active: float, snapshot_id: str 
             "rsrp_dbm_p50": _r(k.get("rsrp_mean")), "rsrp_dbm_p10": _r(k.get("rsrp_p10")),
             "sinr_db_p50": _r(k.get("sinr_mean")), "sinr_db_p10": _r(k.get("sinr_p10")),
             "rsrq_db_p50": _r(k.get("rsrq_mean")),
-            "dropped_nearby": dropped,
+            "dropped_nearby": round(ues * frac, 1) if frac is not None else 0.0,
             "neighbors": [{"cell_id": o, "distance_m": None} for o in config if o != c]})
     n = window["network"]
-    if "phones_in_run" in n:  # counted phone by phone (twin_link.window): every phone seen in the run, and those with service
-        phones_active, served = float(n["phones_in_run"]), float(n["phones_served"])
-    else:  # older recordings: phone-seconds with service over the window (phones_active: the caller's, else this window's)
-        served = float(n.get("coverage_ratio_rsrp_gt_-110") or 0) * float(n.get("ue_samples") or 0) / REPORTS_PER_WINDOW
-        if phones_active is None:
-            phones_active = round(float(n.get("ue_samples") or 0) / REPORTS_PER_WINDOW, 1)
+    served = float(n.get("coverage_ratio_rsrp_gt_-110") or 0) * float(n.get("ue_samples") or 0) / REPORTS_PER_WINDOW
     snap = {"snapshot_id": snapshot_id,
             "emulator": f"Viavi AI RSG digital twin ({scenario}), window {window['t'][0]}-{window['t'][1]} s",
             "samples": REPORTS_PER_WINDOW, "config_version": config_version, "taken_at": taken_at,
             "window_s": list(window["t"]),
             "network": {"phones_active": phones_active, "phones_served": round(served, 1),
-                        "phones_reporting": n.get("phones_reporting"),
                         "phones_dropped": round(max(0.0, phones_active - served), 1),
                         "median_rate_mbps": _r(n.get("ue_thp_dl_mean"), 2), "qos_score": _r(n.get("ue_qos_mean")),
                         "coverage_pct": _r(100 * n["coverage_ratio_rsrp_gt_-110"])

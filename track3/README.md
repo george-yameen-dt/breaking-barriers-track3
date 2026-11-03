@@ -49,7 +49,7 @@ AWS setup files are in `aws/`; the runtime package is built by `agentcore/build_
 | Pipeline: Smartscape cells and cell metrics (needs the Dynatrace tenant) | `scenarios/twin/dynatrace/smartscape.sh apply` |
 | Detectors and the correlation rule | `scenarios/twin/dynatrace/apply-detection.sh apply` |
 | Build and deploy the runtimes and the trigger | `agentcore/build_swarm.sh` · `aws/swarm_setup.py` · `aws/trigger_setup.py` · `workflows/apply.sh` |
-| **The live run**: the operator starts the Viavi scenario; Dynatrace, the workflow and the swarm do the rest | on the EC2: `~/team04-track3/viavi-reset`, then `~/team04-track3/viavi-run --scenario team04-track3-live --healthy-minutes 5 --fault-minutes 20` |
+| **The live run**: the operator starts the Viavi scenario; Dynatrace, the workflow and the swarm do the rest | on the EC2: `~/team04-track3/viavi-run --scenario team04-track3-live --minutes 16` |
 | The swarm on a laptop, attached to the live run | `./swarm.sh run --twin attach` |
 | The swarm on the saved Viavi run (offline) | `./swarm.sh run --twin recorded` |
 | **Pause**: capacity's model withdrawn mid-run, calls refused, the run goes on | POST a problem with `"pause": true` to the trigger Lambda while a Viavi run is going (see `aws/trigger_lambda.py`), or `./swarm.sh run --twin recorded --pause` |

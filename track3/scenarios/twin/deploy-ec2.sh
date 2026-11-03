@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Sync this checkout's track3/ (git-tracked files, committed) to the team04 EC2, for viavi-run and viavi-reset. Run on a laptop.
+# Sync this checkout's track3/ (git-tracked files, committed) to the team04 EC2, for viavi-run. Run on a laptop.
 #
 #   track3/scenarios/twin/deploy-ec2.sh [--setup]
 #
@@ -16,7 +16,7 @@ if [ -n "$(git status --porcelain -- track3)" ]; then
 fi
 REV="$(git rev-parse --short HEAD) $(git branch --show-current)"
 git ls-files -z track3 | rsync -a --from0 --files-from=- ./ "$HOST:$DEST/"
-ssh "$HOST" "install -m 755 $DEST/track3/scenarios/twin/viavi-run $DEST/viavi-run && install -m 755 $DEST/track3/scenarios/twin/viavi-reset $DEST/viavi-reset && echo '$REV' > $DEST/REVISION"
+ssh "$HOST" "install -m 755 $DEST/track3/scenarios/twin/viavi-run $DEST/viavi-run && echo '$REV' > $DEST/REVISION"
 if [ "${1:-}" = "--setup" ]; then
   ssh "$HOST" "set -e
     command -v python3.11 >/dev/null || sudo dnf install -y -q python3.11

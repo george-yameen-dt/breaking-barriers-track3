@@ -3,7 +3,6 @@
 # Calls the RSG directly from the box (no SSM) and sends one network + four tower records a minute to Dynatrace.
 #
 #   ssh hackathon-ec2 ~/team04-track3/viavi-run [--scenario NAME] [--config-version V] [--minutes 8] [--dt dry-run]
-#       [--healthy-minutes 5 --fault-minutes 20]   (the fault at 5 min, then 20 minutes of it; the saved scenario is unchanged)
 #
 # Needs ~/.config/team04/dt.env (mode 600) with DT_PLATFORM_TOKEN=... and VIAVI_RSG_URL=https://<rsg>/mcp.
 set -euo pipefail

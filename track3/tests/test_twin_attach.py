@@ -152,7 +152,7 @@ def test_http_link_matches_local_link_ops(mcp):
     assert c["accepted"] is True and ("simulation_command", c["echo"]) in FakeMcp.calls
 
 
-@pytest.mark.parametrize("op", ["start", "step", "stop", "slot", "scenario_get", "scenario_put"])
+@pytest.mark.parametrize("op", ["start", "step", "stop", "slot"])
 def test_http_link_refuses_lifecycle_ops(mcp, op):
     with pytest.raises(PermissionError):
         HttpLink(mcp).run({"op": op, "scenario": "x", "test_id": "t", "seconds": 60, "to": 60})
