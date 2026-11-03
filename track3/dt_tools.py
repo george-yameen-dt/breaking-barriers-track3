@@ -9,6 +9,7 @@ which AgentCore loads from the team04/track3 secret. Skills are a packaged copy 
 import json
 import os
 import re
+import ssl
 import urllib.request
 from pathlib import Path
 
@@ -48,11 +49,20 @@ def available() -> bool:
     return bool(url and token)
 
 
+def _ssl_context() -> ssl.SSLContext:
+    """The certifi bundle when it is installed (a laptop's python.org build has no system certificates), else the system's."""
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        return ssl.create_default_context()
+
+
 def _rpc(url: str, token: str, session: str, body: dict) -> tuple:
     req = urllib.request.Request(url, data=json.dumps(body).encode(), method="POST", headers={
         "Content-Type": "application/json", "Accept": "application/json, text/event-stream", "Authorization": f"Bearer {token}",
         **({"Mcp-Session-Id": session} if session else {})})
-    with urllib.request.urlopen(req, timeout=60) as r:
+    with urllib.request.urlopen(req, timeout=60, context=_ssl_context()) as r:
         raw, sid = r.read().decode(), r.headers.get("Mcp-Session-Id", session)
     if "id" not in body or not raw.strip():
         return {}, sid
