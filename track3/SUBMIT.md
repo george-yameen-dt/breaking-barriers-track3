@@ -43,7 +43,7 @@ Not built yet: applying the approved change to the network (through the AgentCor
 >
 > **What we built (40 s).** Five agents (three specialists, a risk critic and an orchestrator, each in its own AgentCore runtime) fix a cell network, but every model call, hand-off and action crosses one checkpoint. A Cedar policy decides, Bedrock Guardrails screen what goes in and out, a person approves any change, and every step is written to CloudWatch and DynamoDB under one trace id.
 >
-> **Proof (40 s).** Live: "restart all towers" is denied, the rollback is allowed after approval, a withdrawn model is refused, and the trace rebuilds end to end. An independent judge from a different model family grades the agents. We also compare five agent models under one configuration, and a planted prompt injection is stopped.
+> **Proof (40 s).** Live: a change outside the limits is denied, the same fix is allowed after a person approves that exact proposal, a second change to the cell right away is denied, a withdrawn model is refused while the run goes on, and the trace rebuilds end to end. An independent judge from a different model family grades the agents.
 >
 > **Why it matters (20 s).** The controls live outside the agents they control. Swap any model and the rules, the audit trail and the person stay. Dynatrace gives operators the live view on top.
 
@@ -51,13 +51,13 @@ Not built yet: applying the approved change to the network (through the AgentCor
 
 | Criterion | Weight | Where it shows |
 |---|---|---|
-| Technical innovation | 25% | The controls sit outside the agents (`checkpoint.py`). Five models are compared under one configuration (`./track3.sh compare`). |
+| Technical innovation | 25% | The controls sit outside the agents (`checkpoint.py`). The swarm's decision tree is Cedar: every branch is its own action, so the audit records are the tree. |
 | Working demonstration | 20% | The live test is `tools/show_record.py`, which uses read-only calls only: S3, Logs Insights and DynamoDB. |
 | Relevance to barriers | 20% | The barrier is "no agent touches the network without policy, approval and audit". Targets are declared before each run. |
-| Production readiness | 10% | Agents and checkpoint run on AgentCore Runtime `track3_agents`; tools sit behind AgentCore Gateway `track3-gw`, where Policy in AgentCore (Cedar, ENFORCE) is a second wall. Records live in AWS under one run id, with AWS timestamps. |
+| Production readiness | 10% | The five agents run on AgentCore Runtime (one runtime each) with the checkpoint beside them; tools sit behind AgentCore Gateway `track3-gw`, where Policy in AgentCore (Cedar, ENFORCE) is a second wall. Records live in AWS under one run id, with AWS timestamps. |
 | Collaboration and openness | 5% | Plain Python with reusable `checkpoint.py` and Cedar policies. GAPS.md lists every failure. |
 | Presentation | 5% | This script: 2:00 + 0:30. |
-| SDLC, trusted data, evidence chain | 15% | Frozen test set (hash declared), DATA.md, an independent judge, and an adversarial run. |
+| SDLC, trusted data, evidence chain | 15% | Fault scenarios and policy hashes declared before each run, DATA.md, and an independent judge. |
 
 ## 5. Ask the facilitators (Vara, Track 3 tech support)
 

@@ -8,7 +8,7 @@ rm -rf build_swarm track3_swarm.zip && mkdir -p build_swarm/policies build_swarm
 ~/.local/bin/uv pip install --python-platform aarch64-manylinux2014 --python-version 3.12 --target build_swarm --only-binary=:all: -r requirements.txt -q
 cp main.py ../agent_loop.py ../checkpoint.py ../policy.py ../telemetry.py ../gateway.py ../incident.py ../contracts.py ../rfmodel.py ../risk_checks.py ../dt_tools.py build_swarm/
 cp -R ../agents ../adapters build_swarm/
-cp ../policies/track3.cedar ../policies/swarm.cedar ../policies/promotion.cedar build_swarm/policies/
+cp ../policies/swarm.cedar ../policies/promotion.cedar build_swarm/policies/
 cp -R ../scenarios/faults ../scenarios/swarm-layout.json build_swarm/scenarios/
 find build_swarm -name __pycache__ -prune -exec rm -rf {} +
 find build_swarm -type d -exec chmod 755 {} + && find build_swarm -type f -exec chmod 644 {} +

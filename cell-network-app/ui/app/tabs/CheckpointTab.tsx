@@ -155,7 +155,7 @@ export const CheckpointTab = ({ runs, proofs, now }: Props) => {
             </table>
           </>
         ) : (
-          <div className="muted">No checkpoint records in the last 6 hours. Run ./track3.sh run in breaking-barriers/track3 and they show up here about 20 s later.</div>
+          <div className="muted">No checkpoint records in the last 6 hours. Run ./swarm.sh run --cloud --fault outage-C in breaking-barriers/track3 and they show up here about 20 s later.</div>
         )}
       </Surface>
     </div>

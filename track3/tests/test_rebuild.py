@@ -26,7 +26,7 @@ def test_rebuild_keeps_old_results(copy):
 
 
 def _declare_promotion(root: Path, promotion_sha: str) -> None:
-    old = json.loads(next((root / "evidence" / "declared").glob("*incident*.json")).read_text())
+    old = json.loads(next((root / "evidence" / "declared").glob("*swarm*.json")).read_text())
     decl = {**old, "run_id": "2026-11-02T09-00-track3-promote-01", "units": ["promote_denied"], "target": {"promote_denied": "x"},
             "promotion_policies_sha256": promotion_sha}
     (root / "evidence" / "declared" / f"{decl['run_id']}.json").write_text(json.dumps(decl))

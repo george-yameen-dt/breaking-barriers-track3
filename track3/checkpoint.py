@@ -1,6 +1,6 @@
 """The one checkpoint every model, tool and agent-to-agent call crosses.
 
-For each call it: decides with Cedar (policies/track3.cedar), screens model input and output with
+For each call it: decides with Cedar, screens model input and output with
 Amazon Bedrock Guardrails, and writes an audit record with the run id and trace id to
 CloudWatch Logs (the official record), DynamoDB (for the judges' read-only live test) and a local
 JSONL file (for the offline rebuild). Dynatrace gets a copy of each record as the operator view.
@@ -32,7 +32,6 @@ REGISTRY_TABLE = "bb26-team04-track3-registry"
 GUARDRAIL_ID = "lr4zff1274hc"
 GUARDRAIL_VERSION = "DRAFT"
 HERE = Path(__file__).parent
-POLICIES = HERE / "policies" / "track3.cedar"  # network changes; frozen, its hash is in every declared run
 PROMOTION_POLICIES = HERE / "policies" / "promotion.cedar"  # changes to the agents themselves
 DT_LOGS = "https://yqs73977.sprint.apps.dynatracelabs.com/platform/classic/environment-api/v2/logs/ingest"
 DT_TRACES = "https://yqs73977.sprint.dynatracelabs.com/api/v2/otlp/v1/traces"
@@ -42,9 +41,6 @@ ARIZE_SPACE_ID = os.environ.get("ARIZE_SPACE_ID", "U3BhY2U6NTE5NTA6ckhYRg==")
 ARIZE_PROJECT = "bb26-hackathon"
 ARIZE_KEY_FILE = Path.home() / ".arize_api_key_bb26"
 ARIZE_TRACES = "https://otlp.arize.com/v1/traces"
-
-# Tools that change the network. Each needs a policy decision and, where the policy says so, a person's approval.
-STATE_CHANGING = {"restart_all_towers", "set_tower_power", "rollback_model"}
 
 
 def mirror_run(trace_id: str) -> None:
@@ -107,8 +103,8 @@ class Checkpoint:
                                            attributes={"openinference.span.kind": "AGENT", "track3.run_id": run_id,
                                                                        "track3.parent_from": parent_from})
         self._root_open = True
-        self.policy_sets = {"network": PolicySet(POLICIES), "promotion": PolicySet(PROMOTION_POLICIES)}
-        self.policies, self.policy_ids = self.policy_sets["network"].text, self.policy_sets["network"].ids
+        # The base checkpoint holds the promotion set. SwarmCheckpoint decides network changes with swarm.cedar instead.
+        self.policy_sets = {"promotion": PolicySet(PROMOTION_POLICIES)}
         try:
             with telemetry.quiet():
                 self.logs.create_log_stream(logGroupName=LOG_GROUP, logStreamName=run_id)
@@ -216,15 +212,18 @@ class Checkpoint:
 
     # ---- policy ------------------------------------------------------------------------------
     def evaluate(self, principal: str, action: str, resource: str, context: dict, attrs: dict | None = None,
-                 policy_set: str = "network") -> tuple:
-        """Ask Cedar without writing a record (used to check whether an approval would help)."""
+                 policy_set: str = "") -> tuple:
+        """Ask Cedar without writing a record (used to check whether an approval would help). SwarmCheckpoint overrides
+        this and ignores policy_set; the base checkpoint needs one, so a missing name is an error, not a default."""
+        if policy_set not in self.policy_sets:
+            raise KeyError(f"unknown policy set {policy_set!r}; this checkpoint holds {sorted(self.policy_sets)}")
         return self.policy_sets[policy_set].evaluate(principal, action, resource, context, attrs)
 
     def decide(self, principal: str, action: str, resource: str, context: dict, attrs: dict | None = None,
-               policy_set: str = "network") -> dict:
+               policy_set: str = "") -> dict:
         decision, why, errors = self.evaluate(principal, action, resource, context, attrs, policy_set)
-        # Network decisions keep their original record shape; other sets say which one decided.
-        extra = {} if policy_set == "network" else {"policy_set": policy_set}
+        # Swarm decisions keep their original record shape; a named set says which one decided.
+        extra = {"policy_set": policy_set} if policy_set else {}
         return self.record("decision", principal=principal, action=action, resource=resource, context=context,
                            resource_attrs=attrs or {}, decision=decision, policies=why, errors=errors, **extra)
 
@@ -251,7 +250,7 @@ class Checkpoint:
 
     # ---- calls -------------------------------------------------------------------------------
     def call_model(self, agent: str, model_id: str, system: str, prompt: str, max_tokens: int = 1500) -> dict:
-        """One model call with no tools (the judge, the two-agent incident), on Strands through the checkpoint:
+        """One model call with no tools (the judge), on Strands through the checkpoint:
         policy and model registry, guardrail in, Bedrock, guardrail out, audit (agent_loop.py)."""
         from agent_loop import ask, make_agent  # here, not at import: agent_loop imports this module
 
@@ -264,37 +263,3 @@ class Checkpoint:
         if d["decision"] != "Allow":
             raise Refused(f"{from_agent} may not hand work to {to_agent}")
         return self.record("handoff", from_agent=from_agent, to_agent=to_agent, summary=summary[:500])
-
-    def _execute(self, agent: str, tool: str, args: dict, execute, **extra) -> dict:
-        """Runs the tool. In the cloud `execute` goes through the AgentCore Gateway, whose own Cedar can still refuse."""
-        out = execute(tool, args)
-        if isinstance(out, dict) and out.get("allowed") is False:
-            return self.record("denied", who=agent, tool=tool, args=args, policies=[f"agentcore-policy: {out.get('text', '')[:200]}"], **extra)
-        return self.record("executed", who=agent, tool=tool, args=args, result=out.get("text") if isinstance(out, dict) else out, **extra)
-
-    def second_wall(self, agent: str, tool: str, args: dict, call) -> dict:
-        """Asks AWS's own Cedar at the AgentCore Gateway about a tool this checkpoint already denied: it must refuse too."""
-        out = call(tool, args)
-        return self.record("gateway_check", who=agent, tool=tool, allowed=out["allowed"], reason=out["text"][:300])
-
-    def tool(self, agent: str, tool: str, args: dict, approve, execute) -> dict:
-        """A tool call. State-changing tools ask a person only when the policy would allow the call with approval."""
-        resource = 'Network::"mobile-env-medium"'
-        context = {"human_approved": False, "towers": int(args.get("towers", 1 if tool == "set_tower_power" else 0))}
-        first = self.decide(f'Agent::"{agent}"', tool, resource, context)
-        if first["decision"] == "Allow":
-            return self._execute(agent, tool, args, execute)
-        if tool not in STATE_CHANGING or "no policy permits this call" not in first["policies"]:
-            return self.record("denied", who=agent, tool=tool, args=args, policies=first["policies"])
-        # Would a person's approval make it allowed? Ask Cedar before asking the person.
-        if self.evaluate(f'Agent::"{agent}"', tool, resource, {**context, "human_approved": True})[0] != "Allow":
-            return self.record("denied", who=agent, tool=tool, args=args, policies=["not allowed even with approval"])
-        self.record("approval_requested", who=agent, tool=tool, args=args)
-        approver, ok, note = approve(tool, args)
-        self.record("approval", tool=tool, approver=approver, approved=ok, note=note)
-        if not ok:
-            return self.record("denied", who=agent, tool=tool, args=args, policies=["person declined"])
-        final = self.decide(f'Agent::"{agent}"', tool, resource, {**context, "human_approved": True})
-        if final["decision"] != "Allow":
-            return self.record("denied", who=agent, tool=tool, args=args, policies=final["policies"])
-        return self._execute(agent, tool, args, execute, approver=approver)
