@@ -36,7 +36,9 @@ def ensure_role(orchestrator_arn: str) -> str:
     iam.put_role_policy(RoleName=ROLE_NAME, PolicyName="track3-trigger", PolicyDocument=json.dumps({
         "Version": "2012-10-17", "Statement": [
             {"Effect": "Allow", "Action": "bedrock-agentcore:InvokeAgentRuntime", "Resource": [orchestrator_arn, orchestrator_arn + "/*"]},
-            {"Effect": "Allow", "Action": "lambda:InvokeFunction", "Resource": f"arn:aws:lambda:{REGION}:{ACCOUNT}:function:{NAME}"}]}))
+            {"Effect": "Allow", "Action": "lambda:InvokeFunction", "Resource": f"arn:aws:lambda:{REGION}:{ACCOUNT}:function:{NAME}"},
+            {"Effect": "Allow", "Action": ["dynamodb:PutItem", "dynamodb:GetItem"],
+             "Resource": f"arn:aws:dynamodb:{REGION}:{ACCOUNT}:table/bb26-team04-track3-records"}]}))
     return f"arn:aws:iam::{ACCOUNT}:role/bb26/{ROLE_NAME}"
 
 
@@ -44,6 +46,9 @@ def build_zip() -> bytes:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         z.write(HERE / "trigger_lambda.py", "trigger_lambda.py")
+        z.write(HERE.parent / "adapters" / "__init__.py", "adapters/__init__.py")
+        z.write(HERE.parent / "adapters" / "criticality.py", "adapters/criticality.py")
+        z.write(HERE.parent / "scenarios" / "twin" / "critical-cells.json", "scenarios/twin/critical-cells.json")
     return buf.getvalue()
 
 
