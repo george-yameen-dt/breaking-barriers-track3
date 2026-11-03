@@ -12,6 +12,7 @@ from pathlib import Path
 from agents.governance import run_agent
 from contracts import ORCHESTRATOR, report_problems
 
+REASONING_BUDGET = 10000  # gpt-oss reasons before it answers; 3000 tokens ended the capacity specialist mid-thought
 MODELS = {"coverage": "openai.gpt-oss-120b-1:0", "capacity": "openai.gpt-oss-20b-1:0", "availability": "openai.gpt-oss-120b-1:0"}
 PROMPTS = Path(__file__).parent / "prompts"
 
@@ -37,7 +38,7 @@ def investigate(run, role: str) -> dict:
     system = (PROMPTS / f"{role}.md").read_text() + getattr(run.net, "prompt_note", "") + _dynatrace_note(tools)
     payload = {"run_id": cp.run_id, "trace_id": cp.trace_id, "alert": run.alert, "snapshot": snap}
     report = run_agent(cp, role, MODELS[role], system, json.dumps(payload), tools, validate=report_problems,
-                       context_for=run.context_for, max_turns=10)
+                       context_for=run.context_for, max_turns=10, max_tokens=REASONING_BUDGET)
     report.update(agent=role, snapshot_sha256=snap["snapshot_sha256"])
     cp.record("specialist_report", who=role, model_id=MODELS[role], report=report)
     return report

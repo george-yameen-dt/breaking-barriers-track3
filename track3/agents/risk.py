@@ -11,6 +11,8 @@ from pathlib import Path
 from agents.governance import run_agent
 from contracts import CRITIC, ORCHESTRATOR, assessments_problems
 
+from agents.specialist import REASONING_BUDGET
+
 MODEL = "openai.gpt-oss-120b-1:0"
 PROMPT = Path(__file__).parent / "prompts" / "risk.md"
 
@@ -29,5 +31,5 @@ def assess_proposals(run) -> dict:
                "proposals": [{k: v for k, v in p.items() if k != "rollback"} for p in run.proposals]}
     answer = run_agent(cp, CRITIC, MODEL, PROMPT.read_text() + getattr(run.net, "prompt_note", ""), json.dumps(payload),
                        run.tools_for(CRITIC),
-                       validate=lambda a: assessments_problems(a, ids), context_for=run.context_for, max_turns=16)
+                       validate=lambda a: assessments_problems(a, ids), context_for=run.context_for, max_turns=16, max_tokens=REASONING_BUDGET)
     return {a["proposal_id"]: a for a in answer.get("assessments", []) if a.get("proposal_id") in ids}
