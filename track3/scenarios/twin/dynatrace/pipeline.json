@@ -209,6 +209,28 @@
           "field": "twin.phones_without_service",
           "metricKey": "log.viavi_twin.network.phones_without_service"
         }
+      },
+      {
+        "description": "Network coverage % (RSRP > -110 dBm)",
+        "enabled": true,
+        "id": "gy_twin_m_net_cov",
+        "matcher": "matchesValue(twin.kind, \"network\")",
+        "type": "valueMetric",
+        "valueMetric": {
+          "dimensions": [
+            {
+              "extractionType": "field",
+              "sourceFieldName": "twin.network_name"
+            },
+            {
+              "destinationFieldName": "dt.smartscape_source.id",
+              "extractionType": "field",
+              "sourceFieldName": "dt.smartscape.cell_network"
+            }
+          ],
+          "field": "twin.coverage_pct",
+          "metricKey": "log.viavi_twin.network.coverage_pct"
+        }
       }
     ]
   },
@@ -398,7 +420,7 @@
         "enabled": true,
         "id": "gy_twin_change_tower",
         "type": "smartscapeNode",
-        "matcher": "matchesValue(twin.kind, \"change\") and isNotNull(twin.cell)",
+        "matcher": "(matchesValue(twin.kind, \"change\") or matchesValue(twin.kind, \"event\")) and isNotNull(twin.cell) and twin.cell != \"\"",
         "smartscapeNode": {
           "extractNode": false,
           "idComponents": [

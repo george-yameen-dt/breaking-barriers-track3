@@ -46,7 +46,7 @@ def snapshot_records(snap: dict, run_id: str, trace_id: str, source: str) -> lis
                            f"{', '.join(dark) or 'none'}; most of them near {worst['cell_id']}",
                 "twin.phones_without_service": n["phones_dropped"], "twin.phones_active": n["phones_active"],
                 "twin.phones_served": n["phones_served"], "twin.median_rate_mbps": n["median_rate_mbps"],
-                "twin.qos_score": n.get("qos_score"),
+                "twin.qos_score": n.get("qos_score"), "twin.coverage_pct": n.get("coverage_pct"),
                 "twin.worst_cell": worst["cell_id"], "twin.dark_cells": ",".join(dark) or "none"}]
     if alert and not dark:
         records[0]["twin.alert"] = "phones_without_service"
@@ -99,9 +99,10 @@ class DynatraceLogs:
         self._stop, self._lock = threading.Event(), threading.Lock()
         threading.Thread(target=self._heartbeat, daemon=True).start()
 
-    def snapshot(self, snap: dict, source: str, seconds_ago: float = 0) -> None:
-        """seconds_ago dates a window from before the incident back; only the newest window feeds the heartbeat."""
-        records = snapshot_records(snap, self.run_id, self.trace_id, source)
+    def snapshot(self, snap: dict, source: str, seconds_ago: float = 0, extra: dict | None = None) -> None:
+        """seconds_ago dates a window from before the incident back; only the newest window feeds the heartbeat.
+        extra: fields added to every record (the 8-minute test's phase and minute)."""
+        records = [{**r, **(extra or {})} for r in snapshot_records(snap, self.run_id, self.trace_id, source)]
         if not seconds_ago:
             self.latest = records
         self._ship(records, seconds_ago)

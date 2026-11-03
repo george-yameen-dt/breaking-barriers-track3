@@ -95,7 +95,9 @@ def snapshot(window: dict, config: dict, phones_active: float, snapshot_id: str 
             "window_s": list(window["t"]),
             "network": {"phones_active": phones_active, "phones_served": round(served, 1),
                         "phones_dropped": round(max(0.0, phones_active - served), 1),
-                        "median_rate_mbps": _r(n.get("ue_thp_dl_mean"), 2), "qos_score": _r(n.get("ue_qos_mean"))},
+                        "median_rate_mbps": _r(n.get("ue_thp_dl_mean"), 2), "qos_score": _r(n.get("ue_qos_mean")),
+                        "coverage_pct": _r(100 * n["coverage_ratio_rsrp_gt_-110"])
+                        if n.get("coverage_ratio_rsrp_gt_-110") is not None else None},
             "cells": cells}
     snap["snapshot_sha256"] = sha256_of(snap)
     return snap
