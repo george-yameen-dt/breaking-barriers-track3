@@ -128,6 +128,7 @@ def _handle(cp, mode: str, role: str, payload: dict) -> dict:
         # mode "swarm": this runtime is the orchestrator
         cp.record("run_start", mode="swarm", where="AgentCore: one runtime per agent", fault=payload["fault"],
                   fault_sha256=_sha(net.fault_path), policies_sha256=_sha(POLICIES), commit=payload.get("commit", ""),
+                  problem_id=payload.get("problem_id", ""), affected_cells=payload.get("affected_cells", []),
                   declared=bool(payload.get("declared")), declared_s3_last_modified=payload.get("declared_s3", ""),
                   operator=payload.get("operator", ""), runtimes={r: _runtime_arn(r) for r in (*SPECIALISTS, CRITIC)})
         outcome = "error"

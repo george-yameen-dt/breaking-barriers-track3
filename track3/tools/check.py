@@ -178,8 +178,57 @@ def swarm_stabilization(recs: list) -> tuple:
     return bool(hit), f"seq {hit[0]['seq']}: a second change to {hit[0]['cell_id']} right after is denied" if hit else "no stabilization deny"
 
 
+# ---- what Dynatrace did, and how one trace id runs from the problem to the Viavi command (autonomous swarm runs) ----------
+def _when(text: str):
+    from datetime import datetime
+    return datetime.fromisoformat(str(text).replace("Z", "+00:00"))
+
+
+def detect(recs: list, max_seconds: int = 300) -> tuple:
+    """Dynatrace opened a problem within max_seconds of the fault's first record (declared before the run)."""
+    ev = [r for r in recs if r["kind"] == "dynatrace_evidence"]
+    if not ev or not ev[0].get("problems"):
+        return False, "no Dynatrace evidence record with a problem in it"
+    gap = (_when(ev[0]["problems"][0]["event.start"]) - _when(ev[0]["fault_start"])).total_seconds()
+    return gap <= max_seconds, (f"seq {ev[0]['seq']}: problem {ev[0]['problems'][0].get('display_id')} opened {gap:.0f} s after the fault "
+                                f"(declared at most {max_seconds} s)")
+
+
+def one_problem(recs: list) -> tuple:
+    """One fault, one correlated problem: the evidence counts exactly one."""
+    ev = [r for r in recs if r["kind"] == "dynatrace_evidence"]
+    if not ev:
+        return False, "no Dynatrace evidence record"
+    n = ev[0].get("problem_count")
+    return n == 1, f"seq {ev[0]['seq']}: {n} problem(s) opened for the fault (declared exactly 1)"
+
+
+def critical_safe(recs: list) -> tuple:
+    """After the change no critical cell lost QoS."""
+    ver = [r for r in recs if r["kind"] == "verification"]
+    if not ver:
+        return False, "no verification record"
+    hurt = ver[0].get("critical_cells_hurt")
+    return hurt == [], f"seq {ver[0]['seq']}: critical cells hurt after the change: {hurt if hurt else 'none'}"
+
+
+def problem_to_command(recs: list) -> tuple:
+    """One trace id, from the Dynatrace problem to the Viavi command: the run's trace id is the one derived from the
+    problem id (as the trigger Lambda derives it), and the command's reason to Viavi carries it."""
+    import hashlib
+    start = next((r for r in recs if r["kind"] == "run_start"), None)
+    applied = next((r for r in recs if r["kind"] == "applied" and (r.get("reply") or {}).get("accepted")), None)
+    if not start or not start.get("problem_id") or not applied:
+        return False, "no run_start with a problem id, or no accepted command"
+    derived = hashlib.sha256(str(start["problem_id"]).encode()).hexdigest()[:32]
+    ok = start.get("trace_id") == derived and f"trace_id={derived}" in (applied.get("command_reason") or "")
+    return ok, (f"problem {start['problem_id']} -> trace {derived} -> seq {applied['seq']} command to Viavi carries it" if ok
+                else f"trace id {start.get('trace_id')} is not {derived}, or the Viavi command's reason does not carry it")
+
+
 UNITS = {"deny": deny, "allow": allow, "pause": pause, "trace": trace, "judge": judge, "compare": compare, "adversarial": adversarial,
          "second_wall": second_wall, "promote": promote, "promote_denied": promote_denied,
          "swarm_deny": swarm_deny, "swarm_allow": swarm_allow, "swarm_pause": swarm_pause,
          "swarm_trace": swarm_trace, "swarm_stabilization": swarm_stabilization,
-         "swarm_autonomous_apply": swarm_autonomous_apply, "swarm_verify": swarm_verify}
+         "swarm_autonomous_apply": swarm_autonomous_apply, "swarm_verify": swarm_verify,
+         "detect": detect, "one_problem": one_problem, "critical_safe": critical_safe, "problem_to_command": problem_to_command}

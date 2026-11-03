@@ -301,9 +301,10 @@ def apply_and_verify(run, chosen: dict, ctx: dict, predicted: str, say) -> str:
     cell_id, parameter, old, new = chosen["cell_id"], chosen["parameter"], ctx["old_value"], ctx["new_value"]
     tag = f"trace_id={cp.trace_id} run_id={cp.run_id} agent={chosen['agent']}"
     before, snap_before = net.snapshot["network"]["phones_dropped"], net.snapshot
-    reply = net.apply(cell_id, parameter, new, reason=f"{tag} action={chosen['proposal_id']}")
+    reason = f"{tag} action={chosen['proposal_id']}"
+    reply = net.apply(cell_id, parameter, new, reason=reason)
     cp.record("applied", who=ORCHESTRATOR, proposal_id=chosen["proposal_id"], cell_id=cell_id,
-              parameter=parameter, old_value=old, new_value=new, network=net.source, reply=reply)
+              parameter=parameter, old_value=old, new_value=new, network=net.source, reply=reply, command_reason=reason)
     if not reply.get("accepted"):
         say(f"    the twin refused the change: {json.dumps(reply)[:150]}")
         return f"allowed, but the network refused {cell_id} {parameter} {old} -> {new}"

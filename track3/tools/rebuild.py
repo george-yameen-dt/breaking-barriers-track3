@@ -50,7 +50,7 @@ def main() -> int:
         units = [u for u in decl["units"] if u in UNITS] + (["judge"] if "judge" in decl.get("target", {}) else [])
         results[run_id] = {}
         for u in units:
-            ok, why = UNITS[u](recs)
+            ok, why = UNITS[u](recs, **decl.get("thresholds", {}).get(u, {}))
             results[run_id][u] = "pass" if ok else "fail"
             print(f"{run_id}  {u:6} {'PASS' if ok else 'FAIL'}  {why}")
     (ROOT / "evidence" / "results.json").write_text(json.dumps(results, indent=2) + "\n")

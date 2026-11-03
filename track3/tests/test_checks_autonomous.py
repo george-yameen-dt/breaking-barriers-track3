@@ -34,3 +34,55 @@ def test_check_verify_revert_path():
 
 def test_units_are_registered():
     assert {"swarm_autonomous_apply", "swarm_verify"} <= set(check.UNITS)
+
+
+# ---- the units that read what Dynatrace did (copied into the audit records by tools/collect_dynatrace.py) --------------
+def evidence(**over):
+    return rec(9, "dynatrace_evidence", fault_start="2026-11-03T10:00:00Z", problem_count=1,
+               problems=[{"display_id": "P-2611-1", "event.start": "2026-11-03T10:01:30Z", "event.name": "Cell QoS dropped"}],
+               query_sha256="abc", **over)
+
+
+def test_detect_passes_within_the_declared_minutes():
+    ok, why = check.detect([evidence()], max_seconds=300)
+    assert ok and "90" in why, why
+    late = rec(9, "dynatrace_evidence", fault_start="2026-11-03T10:00:00Z", problem_count=1,
+               problems=[{"display_id": "P-1", "event.start": "2026-11-03T10:09:00Z"}])
+    assert not check.detect([late], max_seconds=300)[0]
+    assert not check.detect([], max_seconds=300)[0], "no Dynatrace evidence fails"
+    none = rec(9, "dynatrace_evidence", fault_start="2026-11-03T10:00:00Z", problem_count=0, problems=[])
+    assert not check.detect([none], max_seconds=300)[0], "no problem opened fails"
+
+
+def test_one_problem_for_one_incident():
+    assert check.one_problem([evidence()])[0]
+    two = rec(9, "dynatrace_evidence", fault_start="x", problem_count=2, problems=[{}, {}])
+    assert not check.one_problem([two])[0], "an incident that opened two problems fails"
+    assert not check.one_problem([])[0]
+
+
+def test_critical_cells_not_hurt():
+    good = rec(5, "verification", status="VERIFIED", phones_without_service_before=16.0, measured_after=12.0, critical_cells_hurt=[])
+    assert check.critical_safe([good])[0]
+    bad = rec(5, "verification", status="VERIFY_FAILED", phones_without_service_before=12.0, measured_after=12.0, critical_cells_hurt=["S2"])
+    assert not check.critical_safe([bad])[0]
+    assert not check.critical_safe([])[0]
+
+
+def test_problem_to_command_follows_one_trace_id():
+    import hashlib
+    trace = hashlib.sha256(b"P-2611-1").hexdigest()[:32]
+    start = rec(1, "run_start", problem_id="P-2611-1", trace_id=trace)
+    applied = rec(3, "applied", cell_id="S4", parameter="tx_power_dbm", old_value=40, new_value=44, reply={"accepted": True},
+                  command_reason=f"trace_id={trace} run_id=r agent=coverage")
+    ok, why = check.problem_to_command([start, applied])
+    assert ok and trace in why, why
+    other = dict(applied, command_reason="trace_id=ffff run_id=r")
+    assert not check.problem_to_command([start, other])[0], "the command carries a different trace id"
+    wrong = dict(start, trace_id="0" * 32)
+    assert not check.problem_to_command([wrong, applied])[0], "the trace id is not the one derived from the problem id"
+    assert not check.problem_to_command([dict(start, problem_id=""), applied])[0]
+
+
+def test_new_units_registered():
+    assert {"detect", "one_problem", "critical_safe", "problem_to_command"} <= set(check.UNITS)
