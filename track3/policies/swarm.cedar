@@ -1,6 +1,15 @@
-// Track 3 swarm policies: the orchestrator, three domain specialists (coverage, capacity, availability) and the risk
-// critic. The checkpoint asks Cedar before every model call, hand-off, tool call, proposal and network change.
-// The @id names are what the audit records show. track3.cedar (the two-agent incident) stays untouched.
+// Track 3 swarm policies, autonomous version: the network changes without a person, inside an envelope.
+// People change the envelope (policies/governance.cedar, risk owner); agents never do.
+// Every branch of the swarm's decision tree is its own Cedar action, so a run's decision records ARE its tree:
+//   kpi_snapshot -> handoff -> (read tools) -> propose -> run_risk_checks -> select_proposal
+//     -> apply_cell_configuration -> (verify) -> revert_cell_configuration | hold
+//     -> request_governance_change (when the fix is outside the envelope)
+// Each context carries proposal_id, so the records link one proposal from proposal to apply to revert.
+// Validated against swarm.cedarschema. The @id names are what the audit records show; every policy has one,
+// because the checkpoint maps Cedar's policy0, policy1... to them in file order.
+// The old human-approval version is archived under policies/versions/<sha256>.cedar: declared runs resolve it by hash.
+
+// ---- who may think, and with which model ----------------------------------------------------------------------------
 
 // An agent may call a model only while the model registry says it is approved (the pause demo withdraws one).
 @id("models-approved-only")
@@ -11,6 +20,8 @@ when { resource.status == "approved" };
 @id("handoff-graph")
 permit (principal == Agent::"orchestrator", action == Action::"handoff", resource)
 when { [Agent::"coverage", Agent::"capacity", Agent::"availability", Agent::"risk"].contains(resource) };
+
+// ---- reading the network changes nothing -----------------------------------------------------------------------------
 
 // Reading the network, simulating a change, running the risk checks and reading a skill change nothing.
 @id("read-tools")
@@ -33,10 +44,12 @@ permit (principal, action == Action::"kpi_snapshot", resource);
 permit (principal, action == Action::"dt_query", resource)
 when {
   ["fetch", "timeseries", "smartscapeNodes"].contains(context.dql_verb) && context.window_minutes <= 120 &&
-  ["logs", "spans", "dt.davis.problems", "events"].contains(context.data_object) && context.has_write == false
+  ["logs", "spans", "dt.davis.problems", "events"].contains(context.data_object) && !context.has_write
 };
 
-// Each specialist may only propose changes in its own domain.
+// ---- the decision tree -----------------------------------------------------------------------------------------------
+
+// Node 1, propose: each specialist may only propose changes in its own domain.
 @id("domain-ownership")
 permit (principal, action == Action::"propose", resource)
 when {
@@ -45,29 +58,44 @@ when {
   (principal == Agent::"availability" && ["enabled", "tx_power_dbm", "tilt_deg"].contains(context.parameter))
 };
 
-// Only the orchestrator asks a person, and reads the answer.
-@id("approval-tools")
-permit (principal == Agent::"orchestrator", action in [Action::"request_human_approval", Action::"get_approval_status"], resource);
+// Node 2, select: the orchestrator may act on a proposal only if code's risk checks passed and the risk critic
+// agreed and did not rate it high risk.
+@id("select-eligible-only")
+permit (principal == Agent::"orchestrator", action == Action::"select_proposal", resource)
+when { context.risk_checks_passed && context.critic_agrees && context.risk != "high" };
 
-// Only the orchestrator applies a change, and only one a person approved: same proposal hash, unexpired, unused.
-@id("apply-approved")
+// Node 3, apply: the orchestrator applies the proposal it selected, with no person, when the change is small.
+// Power from 6 dB down to 8 dB up, tilt at most 5 degrees, or switching a cell back on. Anything bigger goes to node 5.
+@id("apply-autonomous-within-envelope")
 permit (principal == Agent::"orchestrator", action == Action::"apply_cell_configuration", resource)
-when { context.approval_valid == true };
+when {
+  context.selected_proposal_matches && context.risk_checks_passed &&
+  ((context.parameter == "tx_power_dbm" && context.delta >= -6 && context.delta <= 8) ||
+   (context.parameter == "tilt_deg" && context.abs_delta <= 5) ||
+   (context.parameter == "enabled" && context.new_value == 1))
+};
 
-// Only the orchestrator reverts, only after verification failed, and only back to the exact old value.
+// Node 4, revert: only after verification failed, and only back to the exact old value.
 @id("revert-exact")
 permit (principal == Agent::"orchestrator", action == Action::"revert_cell_configuration", resource)
-when { context.ledger_status == "VERIFY_FAILED" && context.restores_old_value == true };
+when { context.ledger_status == "VERIFY_FAILED" && context.restores_old_value };
+
+// Node 5, escalate: when the fix is outside the envelope, the orchestrator may ask the risk owner to change the policy.
+// Asking is all it can do: governance.cedar forbids every agent from activating a policy.
+@id("escalate-to-governance")
+permit (principal == Agent::"orchestrator", action == Action::"request_governance_change", resource is Policy);
+
+// ---- never, whatever the envelope says ---------------------------------------------------------------------------------
 
 // Never: transmit power outside 30-46 dBm.
 @id("power-range")
 forbid (principal, action == Action::"apply_cell_configuration", resource)
 when { context.parameter == "tx_power_dbm" && (context.new_value > 46 || context.new_value < 30) };
 
-// Never: tilt outside 0-10 degrees.
+// Never: tilt outside 4-10 degrees (the Viavi twin's safety filter).
 @id("tilt-range")
 forbid (principal, action == Action::"apply_cell_configuration", resource)
-when { context.parameter == "tilt_deg" && (context.new_value > 10 || context.new_value < 0) };
+when { context.parameter == "tilt_deg" && (context.new_value > 10 || context.new_value < 4) };
 
 // Never: an agent change to cell A, which serves emergency services.
 @id("protected-cell")
@@ -77,3 +105,8 @@ forbid (principal, action in [Action::"apply_cell_configuration", Action::"rever
 @id("stabilization-15m")
 forbid (principal, action == Action::"apply_cell_configuration", resource)
 when { context.minutes_since_last_change < 15 };
+
+// Never: more than one autonomous change in a run. A revert is not a change and stays allowed.
+@id("one-autonomous-change-per-run")
+forbid (principal, action == Action::"apply_cell_configuration", resource)
+when { context.applies_this_run >= 1 };

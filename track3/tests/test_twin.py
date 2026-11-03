@@ -51,7 +51,8 @@ class FakeCheckpoint:
 def chosen(net, cell_id="S4", parameter="tx_power_dbm", value=44) -> tuple:
     p = {"proposal_id": "PROP-coverage-1", "agent": "coverage", "cell_id": cell_id, "parameter": parameter,
          "current_value": net.config[cell_id][parameter], "proposed_value": value}
-    return p, apply_context(net, cell_id, parameter, value, approval_valid=True)
+    return p, apply_context(net, cell_id, parameter, value, risk_checks_passed=True, applies_this_run=0,
+                            proposal_id=p["proposal_id"])
 
 
 # ---- the snapshot ---------------------------------------------------------------------------------
@@ -123,7 +124,7 @@ def test_risk_checks_use_the_twins_whatif():
 def test_cedar_denies_the_twins_deny_probe():
     net, cp = twin_net(), FakeCheckpoint()
     probe = net.fault["deny_probe"]
-    ctx = apply_context(net, probe["cell_id"], probe["parameter"], probe["value"], approval_valid=False)
+    ctx = apply_context(net, probe["cell_id"], probe["parameter"], probe["value"], risk_checks_passed=True, applies_this_run=0)
     d = cp.decide('Agent::"orchestrator"', "apply_cell_configuration", f'Cell::"{probe["cell_id"]}"', ctx)
     assert d["decision"] == "Deny" and "power-range" in d["policies"], d
 
@@ -133,7 +134,7 @@ def test_hands_keep_a_change_that_helps():
     net, cp = twin_net(), FakeCheckpoint()
     run = SimpleNamespace(cp=cp, net=net)
     p, ctx = chosen(net)
-    outcome = apply_and_verify(run, p, ctx, "APPROVAL-test-1", "16.0 -> 14.6", say=lambda s: None)
+    outcome = apply_and_verify(run, p, ctx, "16.0 -> 14.6", say=lambda s: None)
     assert outcome.startswith("applied and verified"), outcome
     kinds = [r["kind"] for r in cp.records]
     assert kinds == ["applied", "kpi_snapshot", "verification"], kinds
@@ -158,7 +159,7 @@ def test_hands_undo_a_change_that_made_things_worse():
     net, cp = twin_net(WorseTwin), FakeCheckpoint()
     run = SimpleNamespace(cp=cp, net=net)
     p, ctx = chosen(net)
-    outcome = apply_and_verify(run, p, ctx, "APPROVAL-test-1", "16.0 -> 14.6", say=lambda s: None)
+    outcome = apply_and_verify(run, p, ctx, "16.0 -> 14.6", say=lambda s: None)
     assert "undone" in outcome, outcome
     v = next(r for r in cp.records if r["kind"] == "verification")
     assert v["status"] == "VERIFY_FAILED" and v["measured_after"] > v["phones_without_service_before"], v
@@ -166,6 +167,38 @@ def test_hands_undo_a_change_that_made_things_worse():
     assert undo["policies"] == ["revert-exact"] and undo["restored_value"] == 40, undo
     assert net.config["S4"]["tx_power_dbm"] == 40
     assert [s["params"]["power"] for s in net.twin.sent] == [44, 40]
+
+
+class RefusingTwin(RecordedTwin):
+    """The Viavi MCP refuses every command (for example: no simulation is running)."""
+
+    def command(self, t, command_type, params, reason):
+        self.sent.append({"t": t, "command_type": command_type, "params": params, "reason": reason})
+        return {"accepted": False, "error": "no simulation is currently active"}
+
+
+def test_refused_apply_is_recorded():
+    net, cp = twin_net(RefusingTwin), FakeCheckpoint()
+    run = SimpleNamespace(cp=cp, net=net)
+    p, ctx = chosen(net)
+    outcome = apply_and_verify(run, p, ctx, "16.0 -> 14.6", say=lambda s: None)
+    assert "refused" in outcome, outcome
+    assert [r["kind"] for r in cp.records] == ["applied"], cp.records
+    assert cp.records[0]["reply"]["accepted"] is False and net.config["S4"]["tx_power_dbm"] == 40
+
+
+def test_applied_record_has_no_approval_fields():
+    net, cp = twin_net(), FakeCheckpoint()
+    run = SimpleNamespace(cp=cp, net=net)
+    p, ctx = chosen(net)
+    apply_and_verify(run, p, ctx, "16.0 -> 14.6", say=lambda s: None)
+    assert not [k for r in cp.records for k in r if "approval" in k], cp.records
+    assert "approval_valid" not in ctx
+
+
+def test_the_orchestrator_has_no_approval_step():
+    import agents.orchestrator as orch
+    assert not hasattr(orch, "ask_person") and not hasattr(orch, "APPROVAL_TTL")
 
 
 def test_open_twin_recorded():

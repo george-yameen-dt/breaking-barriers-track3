@@ -27,8 +27,6 @@ from checkpoint import MAX_SPAN_TEXT, Refused
 from contracts import CRITIC, ORCHESTRATOR, SPECIALISTS
 
 REGION = "us-east-2"
-APPROVALS_TABLE = "bb26-team04-track3-approvals"
-APPROVAL_WAIT_S = 300  # the orchestrator's whole call must finish inside AgentCore's 15-minute request limit
 ROLE = os.environ.get("AGENT_ROLE", ORCHESTRATOR)
 
 
@@ -80,23 +78,6 @@ class RemoteAgents:
         return self._invoke(run.cp, role, {"mode": "specialist", "role": role, "ping": True})
 
 
-def wait_for_person(cp):
-    """The person decides on the laptop (swarm.py --cloud); the decision arrives in DynamoDB with the hash they saw."""
-    ddb = boto3.client("dynamodb", region_name=REGION)
-
-    def ask(req: dict):
-        start = time.time()
-        while time.time() - start < APPROVAL_WAIT_S:
-            item = ddb.get_item(TableName=APPROVALS_TABLE, ConsistentRead=True,
-                                Key={"run_id": {"S": cp.run_id}, "tool": {"S": req["approval_id"]}}).get("Item")
-            if item:
-                return (item["approver"]["S"], item["approved"]["BOOL"], item.get("note", {}).get("S", ""),
-                        item.get("channel", {}).get("S", "cli"), item.get("proposal_sha256", {}).get("S", ""))
-            time.sleep(2)
-        return "nobody", False, f"no answer within {APPROVAL_WAIT_S} s", "cli", ""
-    return ask
-
-
 def _sha(p: Path) -> str:
     return hashlib.sha256(p.read_bytes()).hexdigest()
 
@@ -141,7 +122,7 @@ def _handle(cp, mode: str, role: str, payload: dict) -> dict:
         outcome = "error"
         try:
             root_span_id = format(cp.root.get_span_context().span_id, "016x")
-            result = run_incident(cp, net, wait_for_person(cp), pause_operator=payload.get("operator", "operator") if payload.get("pause") else "",
+            result = run_incident(cp, net, pause_operator=payload.get("operator", "operator") if payload.get("pause") else "",
                                   remote=RemoteAgents({**payload, "parent_span_id": root_span_id}),
                                   alert=payload.get("alert_text", ""))
             outcome = result.get("outcome")

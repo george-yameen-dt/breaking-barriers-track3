@@ -24,7 +24,7 @@ How to work:
 3. Propose 0, 1 or 2 changes, best first. proposed_value is the new absolute value. If nothing in your domain is wrong,
    say so and propose nothing.
 Limits: tx_power_dbm 30-46, tilt_deg 0-10. Cell A serves emergency services: never propose a change to A.
-You only propose. You never change the network: a person approves every change and policy decides what is applied.
+You only propose. You never change the network: the orchestrator applies a change only if Cedar's policy allows it, and the next window is measured.
 Cite evidence only as "<cell>.<kpi>": value pairs copied exactly from the snapshot, for example "E.tx_power_dbm": 49.
 
 Reply with JSON only, no other text:

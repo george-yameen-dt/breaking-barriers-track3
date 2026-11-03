@@ -121,6 +121,32 @@ def swarm_allow(recs: list) -> tuple:
                 f"{ready[0]['old_value']} -> {ready[0]['new_value']}" if ok else "no hash-matched approval followed by an Allow")
 
 
+def swarm_autonomous_apply(recs: list) -> tuple:
+    """Cedar allowed the change by the envelope rule, then the network accepted it: no person in between."""
+    asked = [r for r in recs if r["kind"] == "approval_requested"]
+    allowed = [r for r in recs if r["kind"] == "decision" and r.get("action") == "apply_cell_configuration"
+               and r.get("decision") == "Allow" and "apply-autonomous-within-envelope" in r.get("policies", [])]
+    applied = [r for r in recs if r["kind"] == "applied" and (r.get("reply") or {}).get("accepted")]
+    ok = bool(allowed and applied and not asked and allowed[0]["seq"] < applied[0]["seq"])
+    return ok, (f"seq {allowed[0]['seq']} Allow (apply-autonomous-within-envelope) -> seq {applied[0]['seq']} applied "
+                f"{applied[0]['cell_id']} {applied[0]['parameter']} {applied[0]['old_value']} -> {applied[0]['new_value']}, "
+                f"no approval requested" if ok else "no Allow by the envelope rule followed by an accepted change, or a person was asked")
+
+
+def swarm_verify(recs: list) -> tuple:
+    """The next window was measured; a change that made things worse was undone."""
+    ver = [r for r in recs if r["kind"] == "verification"]
+    if not ver:
+        return False, "no verification record"
+    v = ver[0]
+    if v["status"] == "VERIFIED":
+        return True, f"seq {v['seq']}: phones without service {v['phones_without_service_before']} -> {v['measured_after']}"
+    undone = [r for r in recs if r["kind"] == "reverted" and r["seq"] > v["seq"]]
+    return bool(undone), (f"seq {v['seq']} verification failed, seq {undone[0]['seq']} undone, "
+                          f"{undone[0]['cell_id']} {undone[0]['parameter']} back to {undone[0]['restored_value']}" if undone
+                          else f"seq {v['seq']} verification failed and nothing undid the change")
+
+
 def swarm_pause(recs: list) -> tuple:
     """Capacity's model is withdrawn mid-run, its call is refused, the run carries on without it, the model comes back."""
     withdrawn = [r for r in recs if r["kind"] == "registry" and r.get("status") == "withdrawn"]
@@ -147,11 +173,12 @@ def swarm_trace(recs: list) -> tuple:
 
 def swarm_stabilization(recs: list) -> tuple:
     hit = [r for r in recs if r["kind"] == "stabilization_probe" and r.get("decision") == "Deny"
-           and "stabilization-15m" in r.get("policies", [])]
+           and {"stabilization-15m", "one-autonomous-change-per-run"} & set(r.get("policies", []))]
     return bool(hit), f"seq {hit[0]['seq']}: a second change to {hit[0]['cell_id']} right after is denied" if hit else "no stabilization deny"
 
 
 UNITS = {"deny": deny, "allow": allow, "pause": pause, "trace": trace, "judge": judge, "compare": compare, "adversarial": adversarial,
          "second_wall": second_wall, "promote": promote, "promote_denied": promote_denied,
          "swarm_deny": swarm_deny, "swarm_allow": swarm_allow, "swarm_pause": swarm_pause,
-         "swarm_trace": swarm_trace, "swarm_stabilization": swarm_stabilization}
+         "swarm_trace": swarm_trace, "swarm_stabilization": swarm_stabilization,
+         "swarm_autonomous_apply": swarm_autonomous_apply, "swarm_verify": swarm_verify}

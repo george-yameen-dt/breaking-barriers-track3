@@ -1,4 +1,4 @@
-// Schema for swarm-autonomous.cedar. A policy change is validated against it before a risk owner sees it, so a
+// Schema for swarm.cedar. A policy change is validated against it before a risk owner sees it, so a
 // misspelled context key (which would silently never permit) is caught as an error.
 
 entity Agent;
@@ -33,7 +33,7 @@ action select_proposal appliesTo {
 action apply_cell_configuration appliesTo {
   principal: Agent, resource: Cell,
   context: {
-    proposal_id: String, parameter: String, old_value: Long, new_value: Long, abs_delta: Long,
+    proposal_id: String, parameter: String, old_value: Long, new_value: Long, delta: Long, abs_delta: Long,
     risk_checks_passed: Bool, selected_proposal_matches: Bool, applies_this_run: Long, minutes_since_last_change: Long
   }
 };

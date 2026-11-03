@@ -239,7 +239,7 @@ def test_the_orchestrator_hands_its_root_span_to_the_other_runtimes(spans, offli
 
     seen = {}
 
-    def fake_run_incident(cp, _net, _ask, pause_operator="", remote=None):
+    def fake_run_incident(cp, _net, pause_operator="", remote=None, alert=""):
         seen["parent_span_id"] = remote.base["parent_span_id"]
         seen["root"] = format(cp.root.get_span_context().span_id, "016x")
         seen["current"] = format(trace.get_current_span().get_span_context().span_id, "016x")

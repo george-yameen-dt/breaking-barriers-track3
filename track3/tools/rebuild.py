@@ -18,6 +18,12 @@ def sha(p: Path) -> str:
     return hashlib.sha256(p.read_bytes()).hexdigest()
 
 
+def policy_file(decl: dict) -> Path:
+    """The policy text a run was declared with: its archived version by hash, else the path it names."""
+    archived = ROOT / "policies" / "versions" / f"{decl.get('policies_sha256', '')}.cedar"
+    return archived if archived.exists() else ROOT / decl.get("policies_path", "policies/swarm.cedar")
+
+
 def main() -> int:
     bad = 0
     results = {}
@@ -34,7 +40,7 @@ def main() -> int:
         if decl.get("frozen_state_sha256") and sha(ROOT / "scenarios" / "frozen-state.json") != decl["frozen_state_sha256"]:
             print(f"{run_id}: frozen state changed since it was declared")
             bad += 1
-        if decl.get("policies_sha256") and sha(ROOT / decl["policies_path"]) != decl["policies_sha256"]:
+        if decl.get("policies_sha256") and sha(policy_file(decl)) != decl["policies_sha256"]:
             print(f"{run_id}: policies changed since it was declared")
             bad += 1
         if decl.get("promotion_policies_sha256") and sha(ROOT / "policies" / "promotion.cedar") != decl["promotion_policies_sha256"]:

@@ -48,3 +48,13 @@ def test_rebuild_fails_when_promotion_policies_changed(copy, capsys):
     _declare_promotion(copy, "0" * 64)
     assert rebuild.main() == 1
     assert "promotion policies changed" in capsys.readouterr().out
+
+
+def test_policy_file_prefers_version_by_hash(copy):
+    decl = {"policies_path": "policies/swarm.cedar", "policies_sha256": "af0caba68fe6f6b8003202982e2da7a59722fedb6ff8842effe51959ada9bdfd"}
+    assert rebuild.policy_file(decl) == copy / "policies" / "versions" / f"{decl['policies_sha256']}.cedar"
+
+
+def test_policy_file_falls_back_to_path(copy):
+    decl = {"policies_path": "policies/swarm.cedar", "policies_sha256": "0" * 64}
+    assert rebuild.policy_file(decl) == copy / "policies" / "swarm.cedar"

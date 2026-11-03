@@ -67,9 +67,10 @@ def agent(name: str) -> str:
     return f'Agent::"{name}"'
 
 
-def apply_ctx(parameter="tx_power_dbm", old=43, new=44, approval_valid=True, minutes=9999) -> dict:
-    return {"parameter": parameter, "old_value": old, "new_value": new, "approval_valid": approval_valid,
-            "minutes_since_last_change": minutes}
+def apply_ctx(parameter="tx_power_dbm", old=43, new=44, minutes=9999) -> dict:
+    return {"proposal_id": "PROP-coverage-1", "parameter": parameter, "old_value": old, "new_value": new,
+            "delta": new - old, "abs_delta": abs(new - old), "risk_checks_passed": True, "selected_proposal_matches": True,
+            "applies_this_run": 0, "minutes_since_last_change": minutes}
 
 
 def apply(cell="C", principal="orchestrator", **ctx):
@@ -219,7 +220,7 @@ def test_rank_puts_more_agreeing_agents_first():
 # ---- 3. Cedar: an allow and a deny for every @id in policies/swarm.cedar --------------------------
 def test_cedar_policy_ids_line_up_with_policies():
     statements = re.findall(r"^\s*(permit|forbid)\s*\(", POLICY_TEXT, re.M)
-    assert len(POLICY_IDS) == len(set(POLICY_IDS)) == len(statements) == 13, (POLICY_IDS, statements)
+    assert len(POLICY_IDS) == len(set(POLICY_IDS)) == len(statements), (POLICY_IDS, statements)
 
 
 def test_cedar_models_approved_only():
@@ -287,73 +288,10 @@ def test_cedar_domain_ownership():
             assert allowed == (parameter in contracts.OWNS[role]), (role, parameter, allowed)
 
 
-def test_cedar_approval_tools():
-    for action in ("request_human_approval", "get_approval_status"):
-        d = decide(agent("orchestrator"), action, NETWORK)
-        assert d == ("Allow", ["approval-tools"], []), (action, d)
-    d = decide(agent("coverage"), "request_human_approval", NETWORK)
-    assert d[0] == "Deny" and d[1] == NO_PERMIT, d
-
-
-def test_cedar_apply_approved():
-    d = apply(cell="C", parameter="tx_power_dbm", new=44, approval_valid=True, minutes=9999)
-    assert d == ("Allow", ["apply-approved"], []), d
-    d = apply(approval_valid=False)
-    assert d[0] == "Deny" and d[1] == NO_PERMIT, d
-    d = apply(principal="availability")
-    assert d[0] == "Deny", "only the orchestrator applies"
-
-
-def test_cedar_power_range():
-    assert apply(new=46)[0] == "Allow" and apply(new=30)[0] == "Allow"
-    d = apply(new=50)
-    assert d[0] == "Deny" and "power-range" in d[1], d
-    d = apply(new=29)
-    assert d[0] == "Deny" and "power-range" in d[1], d
-    for v in range(25, 52):  # Cedar and risk_checks must agree on the power limits
-        assert (apply(new=v)[0] == "Allow") == rc.in_range("tx_power_dbm", v), v
-
-
-def test_cedar_tilt_range():
-    assert apply(parameter="tilt_deg", old=6, new=8)[0] == "Allow"
-    d = apply(parameter="tilt_deg", old=6, new=12)
-    assert d[0] == "Deny" and "tilt-range" in d[1], d
-    d = apply(parameter="tilt_deg", old=6, new=-1)
-    assert d[0] == "Deny" and "tilt-range" in d[1], d
-    for v in range(-3, 14):
-        assert (apply(parameter="tilt_deg", old=6, new=v)[0] == "Allow") == rc.in_range("tilt_deg", v), v
-
-
-def test_cedar_protected_cell():
-    assert apply(cell="C")[0] == "Allow"
-    d = apply(cell="A")
-    assert d[0] == "Deny" and "protected-cell" in d[1], d
-    d = decide(agent("orchestrator"), "revert_cell_configuration", 'Cell::"A"',
-               {"ledger_status": "VERIFY_FAILED", "restores_old_value": True})
-    assert d[0] == "Deny" and "protected-cell" in d[1], d
-
-
-def test_cedar_stabilization_15m():
-    assert apply(minutes=15)[0] == "Allow"
-    for minutes in (5, 14):
-        d = apply(minutes=minutes)
-        assert d[0] == "Deny" and "stabilization-15m" in d[1], (minutes, d)
-
-
-def test_cedar_reasons_name_every_forbid_that_fired():
-    d = apply(cell="A", new=50, minutes=5)
-    assert d[0] == "Deny" and {"power-range", "protected-cell", "stabilization-15m"} <= set(d[1]), d
-
-
-def test_cedar_revert_exact():
-    ok_ctx = {"ledger_status": "VERIFY_FAILED", "restores_old_value": True}
-    d = decide(agent("orchestrator"), "revert_cell_configuration", 'Cell::"C"', ok_ctx)
-    assert d == ("Allow", ["revert-exact"], []), d
-    for ctx in ({"ledger_status": "APPLIED", "restores_old_value": True},
-                {"ledger_status": "VERIFY_FAILED", "restores_old_value": False}):
-        d = decide(agent("orchestrator"), "revert_cell_configuration", 'Cell::"C"', ctx)
-        assert d[0] == "Deny" and d[1] == NO_PERMIT, (ctx, d)
-    assert decide(agent("availability"), "revert_cell_configuration", 'Cell::"C"', ok_ctx)[0] == "Deny"
+def test_cedar_power_range_matches_risk_checks():
+    for v in range(25, 52):  # Cedar and risk_checks must agree on the power limits (a +1 dB step is always in the envelope)
+        denied_by_range = "power-range" in apply(new=v, old=v - 1)[1]
+        assert denied_by_range == (not rc.in_range("tx_power_dbm", v)), v
 
 
 # ---- 4. dt_tools.parse_dql ------------------------------------------------------------------------

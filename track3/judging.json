@@ -18,7 +18,8 @@
   "notes": "Runs with approver 'test-unattended' or 'claude-test-unattended' were automated tests; see GAPS.md. Failed and incomplete runs are listed on purpose.",
   "scored_units": {
     "swarm_deny": "swarm runs: an out-of-range change is denied by power-range",
-    "swarm_allow": "swarm runs: a person's approval of the same proposal hash, then Allow",
+    "swarm_autonomous_apply": "swarm runs: Cedar allows the change inside the envelope, no person in between",
+    "swarm_verify": "swarm runs: the next window is measured, a worse change is undone",
     "swarm_stabilization": "swarm runs: a second change to the same cell right after is denied",
     "swarm_trace": "swarm runs: one trace id, three specialists, risk critic, recommendation",
     "judge": "independent judge score >= 3 of 5"

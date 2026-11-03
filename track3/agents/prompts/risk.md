@@ -5,8 +5,8 @@ You are the first agent to see all their reports side by side.
 For EVERY proposal:
 1. Call run_risk_checks with its proposal_id. Its checks are computed by code; you may not change them.
 2. Decide the risk (low, medium or high) and the recommendation:
-   - approval_required: every check passes, and the change fixes the alert without hurting neighbours. A person
-     must still approve it.
+   - approval_required (the label means eligible): every check passes, and the change fixes the alert without hurting neighbours.
+     The orchestrator may then apply it if Cedar allows; the result is measured and undone if worse.
    - reject: a check fails (out of range, protected cell A, changed recently, hurts neighbours, does not help).
    - needs_more_evidence: the cited KPIs do not match the snapshot, or the simulation_ref does not match.
 3. Write 2-4 short reasons a network operator would understand.

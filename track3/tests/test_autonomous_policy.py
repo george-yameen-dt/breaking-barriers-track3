@@ -1,4 +1,4 @@
-"""The autonomous swarm policies (swarm-autonomous.cedar) and the governance policies (governance.cedar).
+"""The autonomous swarm policies (swarm.cedar) and the governance policies (governance.cedar).
 
 Offline: Cedar only, no AWS. Each test names the @id that must decide, because those names are what the audit
 records show and what the decision tree is traced by.
@@ -23,7 +23,7 @@ def load(name: str) -> tuple:
     return text, re.findall(r'@id\("([^"]+)"\)', text)
 
 
-SWARM, SWARM_IDS = load("swarm-autonomous.cedar")
+SWARM, SWARM_IDS = load("swarm.cedar")
 GOV, GOV_IDS = load("governance.cedar")
 
 
@@ -42,12 +42,12 @@ def gov(principal, action, resource, **context):
 
 def apply_ctx(parameter="enabled", old=0, new=1, **over):
     return {"proposal_id": "PROP-availability-1", "parameter": parameter, "old_value": old, "new_value": new,
-            "abs_delta": abs(new - old), "risk_checks_passed": True, "selected_proposal_matches": True,
+            "delta": new - old, "abs_delta": abs(new - old), "risk_checks_passed": True, "selected_proposal_matches": True,
             "applies_this_run": 0, "minutes_since_last_change": 9999, **over}
 
 
 # ---- schemas: every policy is well-typed, so a misspelled context key is an error, not a silent never-permit -------------
-@pytest.mark.parametrize("policy,schema", [("swarm-autonomous.cedar", "swarm-autonomous.cedarschema"),
+@pytest.mark.parametrize("policy,schema", [("swarm.cedar", "swarm.cedarschema"),
                                            ("governance.cedar", "governance.cedarschema")])
 def test_policies_validate_against_schema(policy, schema):
     result = cedarpy.validate_policies((POLICIES / policy).read_text(), (POLICIES / schema).read_text())
@@ -55,8 +55,8 @@ def test_policies_validate_against_schema(policy, schema):
 
 
 def test_schema_catches_a_misspelled_context_key():
-    broken = SWARM.replace("context.abs_delta <= 3", "context.abs_detla <= 3")
-    result = cedarpy.validate_policies(broken, (POLICIES / "swarm-autonomous.cedarschema").read_text())
+    broken = SWARM.replace("context.abs_delta <= 5", "context.abs_detla <= 5")
+    result = cedarpy.validate_policies(broken, (POLICIES / "swarm.cedarschema").read_text())
     assert not result.validation_passed
 
 
@@ -103,14 +103,17 @@ def test_only_orchestrator_selects():
 
 # ---- node: apply (the envelope) ----------------------------------------------------------------------------------------
 @pytest.mark.parametrize("parameter,old,new,expect", [
-    ("tx_power_dbm", 40, 43, ("Allow", ["apply-autonomous-within-envelope"])),
-    ("tx_power_dbm", 40, 37, ("Allow", ["apply-autonomous-within-envelope"])),
-    ("tx_power_dbm", 40, 44, ("Deny", NO_PERMIT)),              # outside the envelope: escalate
-    ("tilt_deg", 4, 6, ("Allow", ["apply-autonomous-within-envelope"])),
-    ("tilt_deg", 4, 7, ("Deny", NO_PERMIT)),
+    ("tx_power_dbm", 40, 44, ("Allow", ["apply-autonomous-within-envelope"])),   # the demo fix: S4 40 -> 44 dBm
+    ("tx_power_dbm", 38, 46, ("Allow", ["apply-autonomous-within-envelope"])),   # +8 dB is the largest step up
+    ("tx_power_dbm", 40, 34, ("Allow", ["apply-autonomous-within-envelope"])),   # -6 dB is the largest step down
+    ("tx_power_dbm", 40, 33, ("Deny", NO_PERMIT)),              # -7 dB: outside the envelope
+    ("tx_power_dbm", 36, 45, ("Deny", NO_PERMIT)),              # +9 dB: outside the envelope
+    ("tilt_deg", 4, 9, ("Allow", ["apply-autonomous-within-envelope"])),         # 5 degrees is the largest step
+    ("tilt_deg", 4, 10, ("Deny", NO_PERMIT)),                   # 6 degrees: outside the envelope
+    ("tilt_deg", 6, 3, ("Deny", ["tilt-range"])),               # tilt range is 4-10
     ("enabled", 0, 1, ("Allow", ["apply-autonomous-within-envelope"])),
     ("enabled", 1, 0, ("Deny", NO_PERMIT)),                     # switching a cell off is never autonomous
-    ("tx_power_dbm", 44, 47, ("Deny", ["power-range"])),        # inside the step size, outside the range
+    ("tx_power_dbm", 44, 47, ("Deny", ["power-range"])),        # inside the step size, outside the range 30-46
     ("tx_power_dbm", 32, 29, ("Deny", ["power-range"])),
     ("tilt_deg", 9, 11, ("Deny", ["tilt-range"])),
 ])
@@ -126,6 +129,17 @@ def test_envelope(parameter, old, new, expect):
 ])
 def test_apply_guards(over, by):
     assert swarm(ORCH, "apply_cell_configuration", 'Cell::"C"', apply_ctx(**over)) == ("Deny", by)
+
+
+def test_second_apply_same_cell_in_15m_denied():
+    assert swarm(ORCH, "apply_cell_configuration", 'Cell::"S4"', apply_ctx("tx_power_dbm", 40, 44, minutes_since_last_change=14)) == \
+        ("Deny", ["stabilization-15m"])
+    assert swarm(ORCH, "apply_cell_configuration", 'Cell::"S4"', apply_ctx("tx_power_dbm", 40, 44, minutes_since_last_change=15)) == \
+        ("Allow", ["apply-autonomous-within-envelope"])
+
+
+def test_power_above_46_denied():
+    assert swarm(ORCH, "apply_cell_configuration", 'Cell::"S4"', apply_ctx("tx_power_dbm", 44, 50)) == ("Deny", ["power-range"])
 
 
 def test_protected_cell_A():
