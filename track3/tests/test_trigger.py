@@ -103,7 +103,7 @@ def test_the_targets_are_declared_in_s3_before_the_orchestrator_starts(lam):
     assert put["Key"] == f"evidence/declared/{run_id}.json"
     decl = json.loads(put["Body"])
     assert decl["run_id"] == run_id
-    assert {"critical_safe", "problem_to_command", "swarm_autonomous_apply", "swarm_verify"} <= set(decl["units"])
+    assert {"critical_safe", "problem_to_command", "swarm_autonomous_apply", "swarm_verify", "policy_pin"} <= set(decl["units"])
     assert not {"detect", "one_problem"} & set(decl["units"]), "operator-attested checks are not declared units"
     assert decl["test_set"] == "scenarios/twin/healthy-power-cut.json" and len(decl["test_set_sha256"]) == 64
     sent = json.loads(order[1][1]["Payload"])["_run"]

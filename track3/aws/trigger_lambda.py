@@ -39,7 +39,7 @@ BUCKET = os.environ.get("DECLARE_BUCKET", "bb26-p-team04-data-279760855394-use2"
 HERE = Path(__file__).parent
 SCENARIO = "scenarios/twin/healthy-power-cut.json"
 UNITS = ["swarm_deny", "swarm_autonomous_apply", "swarm_verify", "swarm_stabilization", "swarm_trace", "critical_safe",
-         "problem_to_command", "judge"]
+         "problem_to_command", "policy_pin", "judge"]
 TARGETS = {
     "swarm_deny": "a change outside 30-46 dBm / 4-10 degrees is denied by Cedar",
     "swarm_autonomous_apply": "Cedar allows the change inside the envelope and the network accepts it, with no person in between",
@@ -48,6 +48,7 @@ TARGETS = {
     "swarm_trace": "one trace id and contiguous records across the five AgentCore runtimes",
     "critical_safe": "after the change no critical cell (hospital, emergency, military) lost QoS",
     "problem_to_command": "one trace id from the Dynatrace problem to the command sent to Viavi",
+    "policy_pin": "the policy the runtime loaded is the one a risk owner approved: the registry pin matches",
     "judge": "an independent judge scores the diagnosis and the fix >= 3/5",
     "swarm_pause": "after capacity's model is withdrawn its call is refused and the run goes on without it"}
 agentcore = boto3.client("bedrock-agentcore", region_name=REGION,
