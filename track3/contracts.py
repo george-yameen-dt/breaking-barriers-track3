@@ -137,3 +137,7 @@ def recommendation_problems(answer: dict, eligible_ids: list) -> list:
     if answer.get("chosen") not in eligible_ids:
         return [f"chosen must be one of {', '.join(eligible_ids)}"]
     return [] if answer.get("rationale") else ["rationale is missing"]
+
+
+class Refused(Exception):
+    """A call the checkpoint did not allow."""

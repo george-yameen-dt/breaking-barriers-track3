@@ -37,6 +37,8 @@ def ensure_role(orchestrator_arn: str) -> str:
         "Version": "2012-10-17", "Statement": [
             {"Effect": "Allow", "Action": "bedrock-agentcore:InvokeAgentRuntime", "Resource": [orchestrator_arn, orchestrator_arn + "/*"]},
             {"Effect": "Allow", "Action": "lambda:InvokeFunction", "Resource": f"arn:aws:lambda:{REGION}:{ACCOUNT}:function:{NAME}"},
+            {"Effect": "Allow", "Action": ["s3:PutObject", "s3:GetObject"],
+             "Resource": "arn:aws:s3:::bb26-p-team04-data-279760855394-use2/evidence/declared/*"},
             {"Effect": "Allow", "Action": ["dynamodb:PutItem", "dynamodb:GetItem"],
              "Resource": f"arn:aws:dynamodb:{REGION}:{ACCOUNT}:table/bb26-team04-track3-records"}]}))
     return f"arn:aws:iam::{ACCOUNT}:role/bb26/{ROLE_NAME}"
@@ -49,6 +51,8 @@ def build_zip() -> bytes:
         z.write(HERE.parent / "adapters" / "__init__.py", "adapters/__init__.py")
         z.write(HERE.parent / "adapters" / "criticality.py", "adapters/criticality.py")
         z.write(HERE.parent / "scenarios" / "twin" / "critical-cells.json", "scenarios/twin/critical-cells.json")
+        z.write(HERE.parent / "scenarios" / "twin" / "healthy-power-cut.json", "scenarios/twin/healthy-power-cut.json")
+        z.write(HERE.parent / "policies" / "swarm.cedar", "policies/swarm.cedar")
     return buf.getvalue()
 
 

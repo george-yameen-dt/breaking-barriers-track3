@@ -22,6 +22,7 @@ from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.trace import NonRecordingSpan, SpanContext, Status, StatusCode, TraceFlags
 
+import contracts
 import telemetry
 from policy import PolicySet
 
@@ -81,8 +82,8 @@ def _root_parent(trace_id: str, parent_span_id: str) -> tuple:
     return trace.set_span_in_context(NonRecordingSpan(parent), otel_context.Context()), "payload"
 
 
-class Refused(Exception):
-    """A call the checkpoint did not allow."""
+# Refused lives in contracts.py (no dependencies), so the poller on the EC2 can use it without installing the checkpoint's stack.
+Refused = contracts.Refused
 
 
 MAX_SPAN_TEXT = 20000  # input.value / output.value are cut here, so one span stays well under OTLP limits

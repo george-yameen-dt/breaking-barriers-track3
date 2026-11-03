@@ -19,7 +19,7 @@ import math
 from pathlib import Path
 
 from adapters.criticality import criticality_of
-from checkpoint import Refused
+from contracts import Refused
 from contracts import sha256_of
 
 SCENARIOS = Path(__file__).resolve().parent.parent / "scenarios" / "twin"

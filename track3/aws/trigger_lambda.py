@@ -18,6 +18,7 @@ import json
 import os
 import re
 from datetime import datetime, timezone
+from pathlib import Path
 
 import boto3
 from botocore.config import Config
@@ -32,6 +33,23 @@ RECORDS_TABLE = os.environ.get("RECORDS_TABLE", "bb26-team04-track3-records")
 CELL_NAME = re.compile(r"\b[A-Z]\d+/[A-Z]\d+/[A-Z]\d+\b")
 lam = boto3.client("lambda", region_name=REGION)
 ddb = boto3.client("dynamodb", region_name=REGION)
+s3 = boto3.client("s3", region_name=REGION)
+BUCKET = os.environ.get("DECLARE_BUCKET", "bb26-p-team04-data-279760855394-use2")
+HERE = Path(__file__).parent
+SCENARIO = "scenarios/twin/healthy-power-cut.json"
+UNITS = ["swarm_deny", "swarm_autonomous_apply", "swarm_verify", "swarm_stabilization", "swarm_trace", "critical_safe",
+         "problem_to_command", "detect", "one_problem", "judge"]
+TARGETS = {
+    "swarm_deny": "a change outside 30-46 dBm / 4-10 degrees is denied by Cedar",
+    "swarm_autonomous_apply": "Cedar allows the change inside the envelope and the network accepts it, with no person in between",
+    "swarm_verify": "the next window is measured; a change that made things worse is undone",
+    "swarm_stabilization": "a second change to the same cell right after is denied",
+    "swarm_trace": "one trace id and contiguous records across the five AgentCore runtimes",
+    "critical_safe": "after the change no critical cell (hospital, emergency, military) lost QoS",
+    "problem_to_command": "one trace id from the Dynatrace problem to the command sent to Viavi",
+    "detect": "Dynatrace opens a problem within 300 s of the fault's first record",
+    "one_problem": "the fault opens exactly one correlated problem, not one per cell",
+    "judge": "an independent judge scores the diagnosis and the fix >= 3/5"}
 agentcore = boto3.client("bedrock-agentcore", region_name=REGION,
                          config=Config(read_timeout=900, connect_timeout=15, retries={"total_max_attempts": 1}))
 
@@ -73,6 +91,27 @@ def claim(problem_id: str, run_id: str, trace_id: str) -> dict | None:
     return {"run_id": item["claimed_run_id"]["S"], "trace_id": item["trace_id"]["S"]}
 
 
+def _file(rel: str) -> Path:
+    return next(b / rel for b in (HERE, HERE.parent) if (b / rel).exists())
+
+
+def declared_doc(payload: dict) -> dict:
+    """The targets, written before the run: what each unit must show, and the hashes of the inputs it runs on."""
+    sha = lambda rel: hashlib.sha256(_file(rel).read_bytes()).hexdigest()  # noqa: E731
+    return {"run_id": payload["run_id"], "track": "track-3", "units": UNITS, "target": TARGETS,
+            "thresholds": {"detect": {"max_seconds": 300}}, "problem_id": payload["problem_id"], "trace_id": payload["trace_id"],
+            "test_set": SCENARIO, "test_set_sha256": sha(SCENARIO), "policies_path": "policies/swarm.cedar",
+            "policies_sha256": sha("policies/swarm.cedar"), "declared_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "declared_by": "track3-trigger Lambda, before the orchestrator starts"}
+
+
+def declare(payload: dict) -> str:
+    """Writes evidence/declared/<run_id>.json to the data bucket and returns its LastModified (the time AWS recorded)."""
+    key = f"evidence/declared/{payload['run_id']}.json"
+    s3.put_object(Bucket=BUCKET, Key=key, Body=json.dumps(declared_doc(payload), indent=1).encode(), ContentType="application/json")
+    return s3.head_object(Bucket=BUCKET, Key=key)["LastModified"].isoformat()
+
+
 def start_run(problem: dict) -> dict:
     now = datetime.now(timezone.utc)
     run_id = f"{now:%Y-%m-%dT%H-%M}-track3-dt-{str(problem['problem_id'])[:24]}"
@@ -104,6 +143,7 @@ def handler(event, context):
     held = claim(payload["problem_id"], payload["run_id"], payload["trace_id"])
     if held:  # the same problem again: nothing new starts
         return {"statusCode": 200, "headers": {"content-type": "application/json"}, "body": json.dumps({**held, "duplicate": True})}
+    payload = {**payload, "declared": True, "declared_s3": declare(payload)}  # the targets exist in S3 before the run starts
     lam.invoke(FunctionName=context.function_name, InvocationType="Event", Payload=json.dumps({"_run": payload}).encode())
     return {"statusCode": 202, "headers": {"content-type": "application/json"},
             "body": json.dumps({"run_id": payload["run_id"], "trace_id": payload["trace_id"]})}

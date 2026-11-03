@@ -3,6 +3,7 @@
 import importlib.util
 import json
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -35,6 +36,7 @@ def lam(monkeypatch):
 
     mod.ddb = SimpleNamespace(put_item=put_item, get_item=get_item)
     mod.lam = MagicMock()
+    mod.s3 = SimpleNamespace(put_object=MagicMock(), head_object=lambda **k: {"LastModified": datetime(2026, 11, 3, 10, 0, tzinfo=timezone.utc)})
     return mod
 
 
@@ -89,3 +91,36 @@ def test_alert_text_names_cells_and_criticality(lam):
 def test_the_payload_carries_the_cells(lam):
     payload = lam.start_run({"problem_id": "P-1", "description": "S4/B3/C1 is below 90"})
     assert payload["affected_cells"] == ["S4/B3/C1"] and "S4/B3/C1 (emergency)" in payload["alert_text"]
+
+
+# ---- the declared targets are written to S3 before the run starts ----------------------------------
+def test_the_targets_are_declared_in_s3_before_the_orchestrator_starts(lam):
+    order = []
+    lam.s3 = SimpleNamespace(put_object=lambda **k: order.append(("s3", k)),
+                             head_object=lambda **k: {"LastModified": __import__("datetime").datetime(2026, 11, 3, 10, 0, tzinfo=__import__("datetime").timezone.utc)})
+    lam.lam.invoke.side_effect = lambda **k: order.append(("invoke", k))
+    out = lam.handler(event(), CTX)
+    assert out["statusCode"] == 202 and [k for k, _ in order] == ["s3", "invoke"], [k for k, _ in order]
+    run_id = json.loads(out["body"])["run_id"]
+    put = order[0][1]
+    assert put["Key"] == f"evidence/declared/{run_id}.json"
+    decl = json.loads(put["Body"])
+    assert decl["run_id"] == run_id and decl["thresholds"] == {"detect": {"max_seconds": 300}}
+    assert {"detect", "one_problem", "critical_safe", "problem_to_command", "swarm_autonomous_apply", "swarm_verify"} <= set(decl["units"])
+    assert decl["test_set"] == "scenarios/twin/healthy-power-cut.json" and len(decl["test_set_sha256"]) == 64
+    sent = json.loads(order[1][1]["Payload"])["_run"]
+    assert sent["declared"] is True and sent["declared_s3"].startswith("2026-11-03T10:00")
+
+
+def test_a_duplicate_problem_declares_nothing(lam):
+    lam.handler(event(), CTX)
+    lam.s3.put_object.reset_mock()
+    lam.handler(event(), CTX)
+    lam.s3.put_object.assert_not_called()
+
+
+def test_the_declared_units_exist_and_the_inputs_hash(lam):
+    from tools import check
+    assert set(lam.UNITS) <= set(check.UNITS)
+    doc = lam.declared_doc({"run_id": "r", "problem_id": "P-1", "trace_id": "a" * 32})
+    assert doc["policies_sha256"] and set(doc["target"]) >= set(lam.UNITS) - {"judge"}
