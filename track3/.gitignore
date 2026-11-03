@@ -1,1 +1,4 @@
 aws/trigger-config.json
+pipeline.next.json
+routing.next.json
+routing.now.json

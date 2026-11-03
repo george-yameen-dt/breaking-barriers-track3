@@ -6,7 +6,7 @@
 #   ./detector.sh status     lists it, and the twin's open problems
 set -euo pipefail
 cd "$(dirname "$0")"
-CTX=astroshop
+CTX="${DT_CONTEXT:-fyuz}"
 SCHEMA=builtin:davis.anomaly-detectors
 TITLE="Viavi twin: phones without service"
 find_id() {

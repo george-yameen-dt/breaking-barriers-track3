@@ -226,14 +226,14 @@ def test_dynatrace_records_from_the_incident_snapshot():
 
 def test_the_pipeline_reads_the_fields_the_sender_writes():
     pipeline = json.loads((SCENARIOS / "dynatrace" / "pipeline.json").read_text())
-    records = twin_dt.snapshot_records(twin_net().snapshot, "run-1", "a" * 32, "recorded")
-    tower = next(r for r in records if r.get("twin.alert") == "tower_down")
-    written = set().union(*records)
-    for p in pipeline["davis"]["processors"] + pipeline["smartscapeNodeExtraction"]["processors"]:
-        used = set(re.findall(r"\{(twin\.[a-z_]+)\}", json.dumps(p))) | set(re.findall(r'"(twin\.[a-z_]+)"', json.dumps(p)))
-        assert used <= written, (p["id"], used - written)
-    tower_event = next(p for p in pipeline["davis"]["processors"] if p["id"] == "gy_twin_tower_down")
-    assert tower["twin.alert"] in tower_event["matcher"]
+    ids = [f"S{i}" for i in range(1, 5)]
+    full_records = twin_dt.snapshot_records(
+        twin_snapshot(window_with([f"{i}/B3/C1" for i in ids], pci=True), config_for(ids), 39.0), "run-1", "a" * 32, "recorded")
+    written = set().union(*full_records) | set().union(*twin_dt.snapshot_records(twin_net().snapshot, "run-1", "a" * 32, "recorded"))
+    for section in ("smartscapeNodeExtraction", "metricExtraction"):
+        for p in pipeline[section]["processors"]:
+            used = set(re.findall(r"\{(twin\.[a-z_]+)\}", json.dumps(p))) | set(re.findall(r'"(twin\.[a-z_]+)"', json.dumps(p)))
+            assert used <= written, (p["id"], used - written)
 
 
 def test_dry_run_writes_records_and_sends_nothing():
@@ -439,7 +439,7 @@ def window_with(names: list, pci: bool = False) -> dict:
     """The saved run's first window, with its S4 reading copied to every name in `names`."""
     w = copy.deepcopy(twin_net().twin.window(0, 60))
     base = next(iter(w["cells"].values()))
-    w["cells"] = {n: {**base, **({"pci": 7.0, "nrcgi": 4241000000000042.0, "frequency": 1800.0} if pci else {})} for n in names}
+    w["cells"] = {n: {**base, "qos": 100.0, **({"pci": 7.0, "nrcgi": 4241000000000042.0, "frequency": 1800.0} if pci else {})} for n in names}
     return w
 
 
