@@ -1,0 +1,548 @@
+{
+  "customId": "gy-viavi-twin",
+  "displayName": "Viavi twin (team04)",
+  "metadataList": [],
+  "costAllocation": {
+    "processors": []
+  },
+  "dataExtraction": {
+    "processors": []
+  },
+  "metricExtraction": {
+    "processors": [
+      {
+        "description": "Tower QoS Score",
+        "enabled": true,
+        "id": "gy_twin_m_qos",
+        "matcher": "matchesValue(twin.kind, \"cell\")",
+        "type": "valueMetric",
+        "valueMetric": {
+          "dimensions": [
+            {
+              "extractionType": "field",
+              "sourceFieldName": "twin.cell_name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "twin.network_name"
+            },
+            {
+              "destinationFieldName": "dt.smartscape_source.id",
+              "extractionType": "field",
+              "sourceFieldName": "dt.smartscape_source.id"
+            }
+          ],
+          "field": "twin.qos_score",
+          "metricKey": "log.viavi_twin.qos_score"
+        }
+      },
+      {
+        "description": "Tower load %",
+        "enabled": true,
+        "id": "gy_twin_m_load",
+        "matcher": "matchesValue(twin.kind, \"cell\")",
+        "type": "valueMetric",
+        "valueMetric": {
+          "dimensions": [
+            {
+              "extractionType": "field",
+              "sourceFieldName": "twin.cell_name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "twin.network_name"
+            },
+            {
+              "destinationFieldName": "dt.smartscape_source.id",
+              "extractionType": "field",
+              "sourceFieldName": "dt.smartscape_source.id"
+            }
+          ],
+          "field": "twin.load_pct",
+          "metricKey": "log.viavi_twin.load_pct"
+        }
+      },
+      {
+        "description": "Phones on the tower",
+        "enabled": true,
+        "id": "gy_twin_m_phones",
+        "matcher": "matchesValue(twin.kind, \"cell\")",
+        "type": "valueMetric",
+        "valueMetric": {
+          "dimensions": [
+            {
+              "extractionType": "field",
+              "sourceFieldName": "twin.cell_name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "twin.network_name"
+            },
+            {
+              "destinationFieldName": "dt.smartscape_source.id",
+              "extractionType": "field",
+              "sourceFieldName": "dt.smartscape_source.id"
+            }
+          ],
+          "field": "twin.active_users",
+          "metricKey": "log.viavi_twin.phones"
+        }
+      },
+      {
+        "description": "Phones without service near the tower",
+        "enabled": true,
+        "id": "gy_twin_m_dropped",
+        "matcher": "matchesValue(twin.kind, \"cell\")",
+        "type": "valueMetric",
+        "valueMetric": {
+          "dimensions": [
+            {
+              "extractionType": "field",
+              "sourceFieldName": "twin.cell_name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "twin.network_name"
+            },
+            {
+              "destinationFieldName": "dt.smartscape_source.id",
+              "extractionType": "field",
+              "sourceFieldName": "dt.smartscape_source.id"
+            }
+          ],
+          "field": "twin.dropped_nearby",
+          "metricKey": "log.viavi_twin.phones_without_service"
+        }
+      },
+      {
+        "description": "Tower transmit power",
+        "enabled": true,
+        "id": "gy_twin_m_power",
+        "matcher": "matchesValue(twin.kind, \"cell\")",
+        "type": "valueMetric",
+        "valueMetric": {
+          "dimensions": [
+            {
+              "extractionType": "field",
+              "sourceFieldName": "twin.cell_name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "twin.network_name"
+            },
+            {
+              "destinationFieldName": "dt.smartscape_source.id",
+              "extractionType": "field",
+              "sourceFieldName": "dt.smartscape_source.id"
+            }
+          ],
+          "field": "twin.tx_power_dbm",
+          "metricKey": "log.viavi_twin.tx_power_dbm"
+        }
+      },
+      {
+        "description": "Weakest tenth signal (RSRP p10)",
+        "enabled": true,
+        "id": "gy_twin_m_rsrp",
+        "matcher": "matchesValue(twin.kind, \"cell\")",
+        "type": "valueMetric",
+        "valueMetric": {
+          "dimensions": [
+            {
+              "extractionType": "field",
+              "sourceFieldName": "twin.cell_name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "twin.network_name"
+            },
+            {
+              "destinationFieldName": "dt.smartscape_source.id",
+              "extractionType": "field",
+              "sourceFieldName": "dt.smartscape_source.id"
+            }
+          ],
+          "field": "twin.rsrp_dbm_p10",
+          "metricKey": "log.viavi_twin.rsrp_p10_dbm"
+        }
+      },
+      {
+        "description": "Network QoS Score",
+        "enabled": true,
+        "id": "gy_twin_m_net_qos",
+        "matcher": "matchesValue(twin.kind, \"network\")",
+        "type": "valueMetric",
+        "valueMetric": {
+          "dimensions": [
+            {
+              "extractionType": "field",
+              "sourceFieldName": "twin.network_name"
+            },
+            {
+              "destinationFieldName": "dt.smartscape_source.id",
+              "extractionType": "field",
+              "sourceFieldName": "dt.smartscape.cell_network"
+            }
+          ],
+          "field": "twin.qos_score",
+          "metricKey": "log.viavi_twin.network.qos_score"
+        }
+      },
+      {
+        "description": "Network phones without service",
+        "enabled": true,
+        "id": "gy_twin_m_net_dropped",
+        "matcher": "matchesValue(twin.kind, \"network\")",
+        "type": "valueMetric",
+        "valueMetric": {
+          "dimensions": [
+            {
+              "extractionType": "field",
+              "sourceFieldName": "twin.network_name"
+            },
+            {
+              "destinationFieldName": "dt.smartscape_source.id",
+              "extractionType": "field",
+              "sourceFieldName": "dt.smartscape.cell_network"
+            }
+          ],
+          "field": "twin.phones_without_service",
+          "metricKey": "log.viavi_twin.network.phones_without_service"
+        }
+      },
+      {
+        "description": "Network coverage % (RSRP > -110 dBm)",
+        "enabled": true,
+        "id": "gy_twin_m_net_cov",
+        "matcher": "matchesValue(twin.kind, \"network\")",
+        "type": "valueMetric",
+        "valueMetric": {
+          "dimensions": [
+            {
+              "extractionType": "field",
+              "sourceFieldName": "twin.network_name"
+            },
+            {
+              "destinationFieldName": "dt.smartscape_source.id",
+              "extractionType": "field",
+              "sourceFieldName": "dt.smartscape.cell_network"
+            }
+          ],
+          "field": "twin.coverage_pct",
+          "metricKey": "log.viavi_twin.network.coverage_pct"
+        }
+      }
+    ]
+  },
+  "processing": {
+    "processors": []
+  },
+  "productAllocation": {
+    "processors": []
+  },
+  "securityContext": {
+    "processors": []
+  },
+  "storage": {
+    "processors": []
+  },
+  "smartscapeEdgeExtraction": {
+    "processors": []
+  },
+  "smartscapeNodeExtraction": {
+    "processors": [
+      {
+        "description": "Viavi twin network",
+        "enabled": true,
+        "id": "gy_twin_network_node",
+        "type": "smartscapeNode",
+        "matcher": "isNotNull(twin.network)",
+        "smartscapeNode": {
+          "extractNode": true,
+          "fieldsToExtract": [],
+          "idComponents": [
+            {
+              "idComponent": "network",
+              "referencedFieldName": "twin.network"
+            }
+          ],
+          "nodeIdFieldName": "dt.smartscape.cell_network",
+          "nodeName": {
+            "type": "field",
+            "field": {
+              "sourceFieldName": "twin.network_name"
+            }
+          },
+          "nodeType": "CUSTOM_CELL_NETWORK",
+          "staticEdgesToExtract": []
+        }
+      },
+      {
+        "description": "Neighbour tower 1 (id only)",
+        "enabled": true,
+        "id": "gy_twin_neighbor_1",
+        "type": "smartscapeNode",
+        "matcher": "matchesValue(twin.kind, \"cell\") and isNotNull(twin.neighbor_1)",
+        "smartscapeNode": {
+          "extractNode": false,
+          "idComponents": [
+            {
+              "idComponent": "network",
+              "referencedFieldName": "twin.network"
+            },
+            {
+              "idComponent": "tower",
+              "referencedFieldName": "twin.neighbor_1"
+            }
+          ],
+          "nodeIdFieldName": "dt.smartscape.neighbor_1",
+          "nodeType": "CUSTOM_CELL_TOWER"
+        }
+      },
+      {
+        "description": "Neighbour tower 2 (id only)",
+        "enabled": true,
+        "id": "gy_twin_neighbor_2",
+        "type": "smartscapeNode",
+        "matcher": "matchesValue(twin.kind, \"cell\") and isNotNull(twin.neighbor_2)",
+        "smartscapeNode": {
+          "extractNode": false,
+          "idComponents": [
+            {
+              "idComponent": "network",
+              "referencedFieldName": "twin.network"
+            },
+            {
+              "idComponent": "tower",
+              "referencedFieldName": "twin.neighbor_2"
+            }
+          ],
+          "nodeIdFieldName": "dt.smartscape.neighbor_2",
+          "nodeType": "CUSTOM_CELL_TOWER"
+        }
+      },
+      {
+        "description": "Neighbour tower 3 (id only)",
+        "enabled": true,
+        "id": "gy_twin_neighbor_3",
+        "type": "smartscapeNode",
+        "matcher": "matchesValue(twin.kind, \"cell\") and isNotNull(twin.neighbor_3)",
+        "smartscapeNode": {
+          "extractNode": false,
+          "idComponents": [
+            {
+              "idComponent": "network",
+              "referencedFieldName": "twin.network"
+            },
+            {
+              "idComponent": "tower",
+              "referencedFieldName": "twin.neighbor_3"
+            }
+          ],
+          "nodeIdFieldName": "dt.smartscape.neighbor_3",
+          "nodeType": "CUSTOM_CELL_TOWER"
+        }
+      },
+      {
+        "description": "Viavi twin towers",
+        "enabled": true,
+        "id": "gy_twin_tower_node",
+        "type": "smartscapeNode",
+        "matcher": "matchesValue(twin.kind, \"cell\")",
+        "smartscapeNode": {
+          "extractNode": true,
+          "fieldsToExtract": [
+            {
+              "fieldName": "twin.state",
+              "referencedFieldName": "twin.state"
+            },
+            {
+              "fieldName": "twin.tx_power_dbm",
+              "referencedFieldName": "twin.tx_power_dbm"
+            },
+            {
+              "fieldName": "twin.tilt_deg",
+              "referencedFieldName": "twin.tilt_deg"
+            },
+            {
+              "fieldName": "twin.active_users",
+              "referencedFieldName": "twin.active_users"
+            },
+            {
+              "fieldName": "twin.dropped_nearby",
+              "referencedFieldName": "twin.dropped_nearby"
+            }
+          ],
+          "idComponents": [
+            {
+              "idComponent": "network",
+              "referencedFieldName": "twin.network"
+            },
+            {
+              "idComponent": "tower",
+              "referencedFieldName": "twin.cell"
+            }
+          ],
+          "nodeIdFieldName": "dt.smartscape_source.id",
+          "nodeName": {
+            "type": "field",
+            "field": {
+              "sourceFieldName": "twin.cell_name"
+            }
+          },
+          "nodeType": "CUSTOM_CELL_TOWER",
+          "staticEdgesToExtract": [
+            {
+              "edgeType": "belongs_to",
+              "targetIdFieldName": "dt.smartscape.cell_network",
+              "targetType": "CUSTOM_CELL_NETWORK"
+            },
+            {
+              "edgeType": "connects_to",
+              "targetIdFieldName": "dt.smartscape.neighbor_1",
+              "targetType": "CUSTOM_CELL_TOWER"
+            },
+            {
+              "edgeType": "connects_to",
+              "targetIdFieldName": "dt.smartscape.neighbor_2",
+              "targetType": "CUSTOM_CELL_TOWER"
+            },
+            {
+              "edgeType": "connects_to",
+              "targetIdFieldName": "dt.smartscape.neighbor_3",
+              "targetType": "CUSTOM_CELL_TOWER"
+            }
+          ]
+        }
+      },
+      {
+        "description": "Agent changes: tag the tower they touched",
+        "enabled": true,
+        "id": "gy_twin_change_tower",
+        "type": "smartscapeNode",
+        "matcher": "(matchesValue(twin.kind, \"change\") or matchesValue(twin.kind, \"event\")) and isNotNull(twin.cell) and twin.cell != \"\"",
+        "smartscapeNode": {
+          "extractNode": false,
+          "idComponents": [
+            {
+              "idComponent": "network",
+              "referencedFieldName": "twin.network"
+            },
+            {
+              "idComponent": "tower",
+              "referencedFieldName": "twin.cell"
+            }
+          ],
+          "nodeIdFieldName": "dt.smartscape_source.id",
+          "nodeType": "CUSTOM_CELL_TOWER"
+        }
+      }
+    ]
+  },
+  "davis": {
+    "processors": [
+      {
+        "description": "Tower down while phones are without service",
+        "enabled": true,
+        "id": "gy_twin_tower_down",
+        "matcher": "matchesValue(twin.alert, \"tower_down\")",
+        "type": "davis",
+        "davis": {
+          "properties": [
+            {
+              "key": "event.type",
+              "value": "AVAILABILITY_EVENT"
+            },
+            {
+              "key": "event.name",
+              "value": "Tower down: phones without service on the Viavi twin"
+            },
+            {
+              "key": "event.description",
+              "value": "**{twin.cell_name} lost power.** {twin.network_phones_without_service} of {twin.network_phones_active} phones without service, most near {twin.network_worst_cell}. Network QoS {twin.network_qos_score}/100.\n\n**Next:** crew to restore power; neighbours cover the gap (agents propose, a person approves)."
+            },
+            {
+              "key": "dt.smartscape_source.id",
+              "value": "{dt.smartscape_source.id}"
+            },
+            {
+              "key": "dt.davis.is_rootcause_relevant",
+              "value": "true"
+            },
+            {
+              "key": "dt.davis.is_merging_allowed",
+              "value": "true"
+            },
+            {
+              "key": "dt.davis.timeout",
+              "value": "2"
+            },
+            {
+              "key": "twin.run_id",
+              "value": "{twin.run_id}"
+            },
+            {
+              "key": "twin.network_qos_score",
+              "value": "{twin.network_qos_score}"
+            },
+            {
+              "key": "twin.network_phones_without_service",
+              "value": "{twin.network_phones_without_service}"
+            },
+            {
+              "key": "twin.network_worst_cell",
+              "value": "{twin.network_worst_cell}"
+            },
+            {
+              "key": "twin.cell",
+              "value": "{twin.cell}"
+            }
+          ]
+        }
+      },
+      {
+        "description": "Phones without service, no tower down",
+        "enabled": true,
+        "id": "gy_twin_phones",
+        "matcher": "matchesValue(twin.alert, \"phones_without_service\")",
+        "type": "davis",
+        "davis": {
+          "properties": [
+            {
+              "key": "event.type",
+              "value": "ERROR_EVENT"
+            },
+            {
+              "key": "event.name",
+              "value": "Phones without service on the Viavi twin"
+            },
+            {
+              "key": "event.description",
+              "value": "The twin reports {twin.phones_without_service} of {twin.phones_active} phones without service (RSRP at or below -110 dBm), most of them near tower {twin.worst_cell}."
+            },
+            {
+              "key": "dt.smartscape_source.id",
+              "value": "{dt.smartscape.cell_network}"
+            },
+            {
+              "key": "dt.davis.is_rootcause_relevant",
+              "value": "true"
+            },
+            {
+              "key": "dt.davis.is_merging_allowed",
+              "value": "true"
+            },
+            {
+              "key": "dt.davis.timeout",
+              "value": "2"
+            },
+            {
+              "key": "twin.run_id",
+              "value": "{twin.run_id}"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "twin-S3-power-failure",
+  "description": "Viavi twin, scenario team04-track3-4cell-faults: cell S3 loses commercial power at 300 s and stops transmitting; it cannot be switched back on remotely. S2's radio has been degraded since 120 s.",
+  "injection": {"cell_id": "S3", "parameter": "enabled", "value": 0},
+  "expected_owner": "availability",
+  "acceptable_fixes": [
+    {"cell_id": "S4", "parameter": "tx_power_dbm", "direction": "up"},
+    {"cell_id": "S2", "parameter": "tx_power_dbm", "direction": "up"},
+    {"cell_id": "S4", "parameter": "tilt_deg", "direction": "down"},
+    {"cell_id": "S2", "parameter": "tilt_deg", "direction": "down"}
+  ],
+  "deny_probe": {"cell_id": "S1", "parameter": "tx_power_dbm", "value": 50},
+  "twin": {
+    "scenario": "team04-track3-4cell-faults",
+    "incident_window": [300, 360],
+    "recording": "proof-rsg-14.json",
+    "recording_first_timestamp": 1704067200
+  }
+}

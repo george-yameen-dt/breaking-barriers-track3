@@ -27,6 +27,7 @@ def assess_proposals(run) -> dict:
     ids = [p["proposal_id"] for p in run.proposals]
     payload = {"alert": run.alert, "snapshot": run.net.snapshot, "reports": run.reports,
                "proposals": [{k: v for k, v in p.items() if k != "rollback"} for p in run.proposals]}
-    answer = run_agent(cp, CRITIC, MODEL, PROMPT.read_text(), json.dumps(payload), run.tools_for(CRITIC),
-                       validate=lambda a: assessments_problems(a, ids), context_for=run.context_for, max_turns=10)
+    answer = run_agent(cp, CRITIC, MODEL, PROMPT.read_text() + getattr(run.net, "prompt_note", ""), json.dumps(payload),
+                       run.tools_for(CRITIC),
+                       validate=lambda a: assessments_problems(a, ids), context_for=run.context_for, max_turns=16)
     return {a["proposal_id"]: a for a in answer.get("assessments", []) if a.get("proposal_id") in ids}

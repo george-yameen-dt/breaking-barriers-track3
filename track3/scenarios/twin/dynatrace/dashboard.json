@@ -1,0 +1,592 @@
+{
+ "id": "c36c542f-96f1-4115-b6d4-d525f27d975c",
+ "name": "Viavi twin (team04): towers, problems, agent fixes",
+ "type": "dashboard",
+ "content": {
+  "version": 21,
+  "variables": [],
+  "tiles": {
+   "hdr": {
+    "type": "markdown",
+    "content": "## Viavi twin (team04) · live network\nHealthy = **QoS 100** on every tower (every phone gets the speed it asked for). A tower goes down → Dynatrace opens a problem on it → the agents propose a fix → a person approves → the twin measures the result."
+   },
+   "qS1": {
+    "title": "Tower S1",
+    "type": "data",
+    "query": "timeseries series = avg(log.viavi_twin.qos_score), filter: twin.cell_name == \"Tower S1\", interval:1m, from:now()-30m\n| fieldsAdd now = arrayLast(arrayRemoveNulls(series))",
+    "visualization": "singleValue",
+    "visualizationSettings": {
+     "autoSelectVisualization": false,
+     "singleValue": {
+      "label": "QoS now",
+      "recordField": "now",
+      "colorThresholdTarget": "background",
+      "sparklineSettings": {
+       "isVisible": true,
+       "record": "series"
+      },
+      "trend": {
+       "isVisible": false
+      }
+     },
+     "thresholds": [
+      {
+       "id": 1,
+       "field": "now",
+       "title": "",
+       "isEnabled": true,
+       "rules": [
+        {
+         "id": 0,
+         "color": {
+          "Default": "var(--dt-colors-charts-status-critical-default, #c62239)"
+         },
+         "comparator": "≥",
+         "label": "",
+         "value": 0
+        },
+        {
+         "id": 1,
+         "color": {
+          "Default": "var(--dt-colors-charts-status-warning-default, #eea53c)"
+         },
+         "comparator": "≥",
+         "label": "",
+         "value": 60
+        },
+        {
+         "id": 2,
+         "color": {
+          "Default": "var(--dt-colors-charts-status-ideal-default, #2f6862)"
+         },
+         "comparator": "≥",
+         "label": "",
+         "value": 90
+        }
+       ]
+      }
+     ]
+    },
+    "querySettings": {
+     "defaultSamplingRatio": 1,
+     "defaultScanLimitGbytes": -1,
+     "enableSampling": false,
+     "maxResultMegaBytes": 20,
+     "maxResultRecords": 1000
+    }
+   },
+   "qS2": {
+    "title": "Tower S2",
+    "type": "data",
+    "query": "timeseries series = avg(log.viavi_twin.qos_score), filter: twin.cell_name == \"Tower S2\", interval:1m, from:now()-30m\n| fieldsAdd now = arrayLast(arrayRemoveNulls(series))",
+    "visualization": "singleValue",
+    "visualizationSettings": {
+     "autoSelectVisualization": false,
+     "singleValue": {
+      "label": "QoS now",
+      "recordField": "now",
+      "colorThresholdTarget": "background",
+      "sparklineSettings": {
+       "isVisible": true,
+       "record": "series"
+      },
+      "trend": {
+       "isVisible": false
+      }
+     },
+     "thresholds": [
+      {
+       "id": 1,
+       "field": "now",
+       "title": "",
+       "isEnabled": true,
+       "rules": [
+        {
+         "id": 0,
+         "color": {
+          "Default": "var(--dt-colors-charts-status-critical-default, #c62239)"
+         },
+         "comparator": "≥",
+         "label": "",
+         "value": 0
+        },
+        {
+         "id": 1,
+         "color": {
+          "Default": "var(--dt-colors-charts-status-warning-default, #eea53c)"
+         },
+         "comparator": "≥",
+         "label": "",
+         "value": 60
+        },
+        {
+         "id": 2,
+         "color": {
+          "Default": "var(--dt-colors-charts-status-ideal-default, #2f6862)"
+         },
+         "comparator": "≥",
+         "label": "",
+         "value": 90
+        }
+       ]
+      }
+     ]
+    },
+    "querySettings": {
+     "defaultSamplingRatio": 1,
+     "defaultScanLimitGbytes": -1,
+     "enableSampling": false,
+     "maxResultMegaBytes": 20,
+     "maxResultRecords": 1000
+    }
+   },
+   "qS3": {
+    "title": "Tower S3",
+    "type": "data",
+    "query": "timeseries series = avg(log.viavi_twin.qos_score), filter: twin.cell_name == \"Tower S3\", interval:1m, from:now()-30m\n| fieldsAdd now = arrayLast(arrayRemoveNulls(series))",
+    "visualization": "singleValue",
+    "visualizationSettings": {
+     "autoSelectVisualization": false,
+     "singleValue": {
+      "label": "QoS now",
+      "recordField": "now",
+      "colorThresholdTarget": "background",
+      "sparklineSettings": {
+       "isVisible": true,
+       "record": "series"
+      },
+      "trend": {
+       "isVisible": false
+      }
+     },
+     "thresholds": [
+      {
+       "id": 1,
+       "field": "now",
+       "title": "",
+       "isEnabled": true,
+       "rules": [
+        {
+         "id": 0,
+         "color": {
+          "Default": "var(--dt-colors-charts-status-critical-default, #c62239)"
+         },
+         "comparator": "≥",
+         "label": "",
+         "value": 0
+        },
+        {
+         "id": 1,
+         "color": {
+          "Default": "var(--dt-colors-charts-status-warning-default, #eea53c)"
+         },
+         "comparator": "≥",
+         "label": "",
+         "value": 60
+        },
+        {
+         "id": 2,
+         "color": {
+          "Default": "var(--dt-colors-charts-status-ideal-default, #2f6862)"
+         },
+         "comparator": "≥",
+         "label": "",
+         "value": 90
+        }
+       ]
+      }
+     ]
+    },
+    "querySettings": {
+     "defaultSamplingRatio": 1,
+     "defaultScanLimitGbytes": -1,
+     "enableSampling": false,
+     "maxResultMegaBytes": 20,
+     "maxResultRecords": 1000
+    }
+   },
+   "qS4": {
+    "title": "Tower S4",
+    "type": "data",
+    "query": "timeseries series = avg(log.viavi_twin.qos_score), filter: twin.cell_name == \"Tower S4\", interval:1m, from:now()-30m\n| fieldsAdd now = arrayLast(arrayRemoveNulls(series))",
+    "visualization": "singleValue",
+    "visualizationSettings": {
+     "autoSelectVisualization": false,
+     "singleValue": {
+      "label": "QoS now",
+      "recordField": "now",
+      "colorThresholdTarget": "background",
+      "sparklineSettings": {
+       "isVisible": true,
+       "record": "series"
+      },
+      "trend": {
+       "isVisible": false
+      }
+     },
+     "thresholds": [
+      {
+       "id": 1,
+       "field": "now",
+       "title": "",
+       "isEnabled": true,
+       "rules": [
+        {
+         "id": 0,
+         "color": {
+          "Default": "var(--dt-colors-charts-status-critical-default, #c62239)"
+         },
+         "comparator": "≥",
+         "label": "",
+         "value": 0
+        },
+        {
+         "id": 1,
+         "color": {
+          "Default": "var(--dt-colors-charts-status-warning-default, #eea53c)"
+         },
+         "comparator": "≥",
+         "label": "",
+         "value": 60
+        },
+        {
+         "id": 2,
+         "color": {
+          "Default": "var(--dt-colors-charts-status-ideal-default, #2f6862)"
+         },
+         "comparator": "≥",
+         "label": "",
+         "value": 90
+        }
+       ]
+      }
+     ]
+    },
+    "querySettings": {
+     "defaultSamplingRatio": 1,
+     "defaultScanLimitGbytes": -1,
+     "enableSampling": false,
+     "maxResultMegaBytes": 20,
+     "maxResultRecords": 1000
+    }
+   },
+   "net": {
+    "title": "Whole network",
+    "type": "data",
+    "query": "timeseries series = avg(log.viavi_twin.network.qos_score), interval:1m, from:now()-30m\n| fieldsAdd now = arrayLast(arrayRemoveNulls(series))",
+    "visualization": "singleValue",
+    "visualizationSettings": {
+     "autoSelectVisualization": false,
+     "singleValue": {
+      "label": "QoS now",
+      "recordField": "now",
+      "colorThresholdTarget": "background",
+      "sparklineSettings": {
+       "isVisible": true,
+       "record": "series"
+      },
+      "trend": {
+       "isVisible": false
+      }
+     },
+     "thresholds": [
+      {
+       "id": 1,
+       "field": "now",
+       "title": "",
+       "isEnabled": true,
+       "rules": [
+        {
+         "id": 0,
+         "color": {
+          "Default": "var(--dt-colors-charts-status-critical-default, #c62239)"
+         },
+         "comparator": "≥",
+         "label": "",
+         "value": 0
+        },
+        {
+         "id": 1,
+         "color": {
+          "Default": "var(--dt-colors-charts-status-warning-default, #eea53c)"
+         },
+         "comparator": "≥",
+         "label": "",
+         "value": 60
+        },
+        {
+         "id": 2,
+         "color": {
+          "Default": "var(--dt-colors-charts-status-ideal-default, #2f6862)"
+         },
+         "comparator": "≥",
+         "label": "",
+         "value": 90
+        }
+       ]
+      }
+     ]
+    },
+    "querySettings": {
+     "defaultSamplingRatio": 1,
+     "defaultScanLimitGbytes": -1,
+     "enableSampling": false,
+     "maxResultMegaBytes": 20,
+     "maxResultRecords": 1000
+    }
+   },
+   "drop": {
+    "title": "Phones without service",
+    "type": "data",
+    "query": "timeseries series = avg(log.viavi_twin.network.phones_without_service), interval:1m, from:now()-30m\n| fieldsAdd now = arrayLast(arrayRemoveNulls(series))",
+    "visualization": "singleValue",
+    "visualizationSettings": {
+     "autoSelectVisualization": false,
+     "singleValue": {
+      "label": "now",
+      "recordField": "now",
+      "colorThresholdTarget": "background",
+      "sparklineSettings": {
+       "isVisible": true,
+       "record": "series"
+      },
+      "trend": {
+       "isVisible": false
+      }
+     },
+     "thresholds": [
+      {
+       "id": 1,
+       "field": "now",
+       "title": "",
+       "isEnabled": true,
+       "rules": [
+        {
+         "id": 0,
+         "color": {
+          "Default": "var(--dt-colors-charts-status-ideal-default, #2f6862)"
+         },
+         "comparator": "≥",
+         "label": "",
+         "value": 0
+        },
+        {
+         "id": 1,
+         "color": {
+          "Default": "var(--dt-colors-charts-status-warning-default, #eea53c)"
+         },
+         "comparator": "≥",
+         "label": "",
+         "value": 10
+        },
+        {
+         "id": 2,
+         "color": {
+          "Default": "var(--dt-colors-charts-status-critical-default, #c62239)"
+         },
+         "comparator": "≥",
+         "label": "",
+         "value": 13
+        }
+       ]
+      }
+     ]
+    },
+    "querySettings": {
+     "defaultSamplingRatio": 1,
+     "defaultScanLimitGbytes": -1,
+     "enableSampling": false,
+     "maxResultMegaBytes": 20,
+     "maxResultRecords": 1000
+    }
+   },
+   "qos": {
+    "title": "QoS Score by tower",
+    "type": "data",
+    "query": "timeseries value = avg(log.viavi_twin.qos_score), by:{twin.cell_name}, interval:1m",
+    "visualization": "lineChart",
+    "visualizationSettings": {
+     "autoSelectVisualization": false
+    },
+    "querySettings": {
+     "defaultSamplingRatio": 1,
+     "defaultScanLimitGbytes": -1,
+     "enableSampling": false,
+     "maxResultMegaBytes": 20,
+     "maxResultRecords": 1000
+    }
+   },
+   "load": {
+    "title": "Tower load %",
+    "type": "data",
+    "query": "timeseries value = avg(log.viavi_twin.load_pct), by:{twin.cell_name}, interval:1m",
+    "visualization": "lineChart",
+    "visualizationSettings": {
+     "autoSelectVisualization": false
+    },
+    "querySettings": {
+     "defaultSamplingRatio": 1,
+     "defaultScanLimitGbytes": -1,
+     "enableSampling": false,
+     "maxResultMegaBytes": 20,
+     "maxResultRecords": 1000
+    }
+   },
+   "pwr": {
+    "title": "Transmit power (dBm): the agents' lever",
+    "type": "data",
+    "query": "timeseries value = avg(log.viavi_twin.tx_power_dbm), by:{twin.cell_name}, interval:1m",
+    "visualization": "lineChart",
+    "visualizationSettings": {
+     "autoSelectVisualization": false
+    },
+    "querySettings": {
+     "defaultSamplingRatio": 1,
+     "defaultScanLimitGbytes": -1,
+     "enableSampling": false,
+     "maxResultMegaBytes": 20,
+     "maxResultRecords": 1000
+    }
+   },
+   "prob": {
+    "title": "Problems",
+    "type": "data",
+    "query": "fetch dt.davis.problems, from:now()-2h | filter contains(event.name, \"Viavi twin\")\n| dedup display_id, sort:{timestamp desc}\n| fields started = event.start, problem = display_id, status = event.status, what = event.name\n| sort started desc | limit 6",
+    "visualization": "table",
+    "visualizationSettings": {
+     "autoSelectVisualization": false
+    },
+    "querySettings": {
+     "defaultSamplingRatio": 1,
+     "defaultScanLimitGbytes": -1,
+     "enableSampling": false,
+     "maxResultMegaBytes": 20,
+     "maxResultRecords": 1000
+    }
+   },
+   "chg": {
+    "title": "Agents' changes (approved by a person, checked by Cedar)",
+    "type": "data",
+    "query": "fetch logs, from:now()-2h | filter service.name == \"viavi-twin\" and twin.kind == \"change\"\n| fields time = timestamp, tower = twin.cell, setting = twin.parameter, from = twin.old_value, to = twin.new_value, accepted = twin.accepted\n| sort time desc | limit 6",
+    "visualization": "table",
+    "visualizationSettings": {
+     "autoSelectVisualization": false
+    },
+    "querySettings": {
+     "defaultSamplingRatio": 1,
+     "defaultScanLimitGbytes": -1,
+     "enableSampling": false,
+     "maxResultMegaBytes": 20,
+     "maxResultRecords": 1000
+    }
+   },
+   "logs": {
+    "title": "Tower logs (tagged with the tower in Smartscape)",
+    "type": "data",
+    "query": "fetch logs, from:now()-30m | filter service.name == \"viavi-twin\" and isNotNull(dt.smartscape_source.id)\n| filter isNull(twin.heartbeat)\n| fields timestamp, loglevel, tower = twin.cell_name, content\n| sort timestamp desc | limit 30",
+    "visualization": "table",
+    "visualizationSettings": {
+     "autoSelectVisualization": false
+    },
+    "querySettings": {
+     "defaultSamplingRatio": 1,
+     "defaultScanLimitGbytes": -1,
+     "enableSampling": false,
+     "maxResultMegaBytes": 20,
+     "maxResultRecords": 1000
+    }
+   }
+  },
+  "layouts": {
+   "hdr": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 2
+   },
+   "qS1": {
+    "x": 0,
+    "y": 2,
+    "w": 4,
+    "h": 3
+   },
+   "qS2": {
+    "x": 4,
+    "y": 2,
+    "w": 4,
+    "h": 3
+   },
+   "qS3": {
+    "x": 8,
+    "y": 2,
+    "w": 4,
+    "h": 3
+   },
+   "qS4": {
+    "x": 12,
+    "y": 2,
+    "w": 4,
+    "h": 3
+   },
+   "net": {
+    "x": 16,
+    "y": 2,
+    "w": 4,
+    "h": 3
+   },
+   "drop": {
+    "x": 20,
+    "y": 2,
+    "w": 4,
+    "h": 3
+   },
+   "qos": {
+    "x": 0,
+    "y": 5,
+    "w": 12,
+    "h": 6
+   },
+   "load": {
+    "x": 12,
+    "y": 5,
+    "w": 6,
+    "h": 6
+   },
+   "pwr": {
+    "x": 18,
+    "y": 5,
+    "w": 6,
+    "h": 6
+   },
+   "prob": {
+    "x": 0,
+    "y": 11,
+    "w": 9,
+    "h": 5
+   },
+   "chg": {
+    "x": 9,
+    "y": 11,
+    "w": 15,
+    "h": 5
+   },
+   "logs": {
+    "x": 0,
+    "y": 16,
+    "w": 24,
+    "h": 6
+   }
+  },
+  "settings": {
+   "defaultTimeframe": {
+    "enabled": true,
+    "value": {
+     "from": "now()-30m",
+     "to": "now()"
+    }
+   },
+   "gridColumnsCount": 24,
+   "syncTimeframeAcrossTiles": true
+  }
+ }
+}

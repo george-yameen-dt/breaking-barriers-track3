@@ -69,16 +69,23 @@ def cross_agent(proposal: dict, proposals: list, reports: dict) -> dict:
 
 
 def check(proposal: dict, evidence: dict, snap: dict, layout: dict, config: dict, ledger: list,
-          proposals: list, reports: dict) -> dict:
-    """The risk assessment for one proposal: checks, cross-agent view, risk, recommendation and plain reasons."""
+          proposals: list, reports: dict, simulate=None) -> dict:
+    """The risk assessment for one proposal: checks, cross-agent view, risk, recommendation and plain reasons.
+    simulate is the network's own what-if (the twin's); by default the rfmodel one on layout and config."""
     pid, cell_id, parameter, value = (proposal["proposal_id"], proposal["cell_id"], proposal["parameter"],
                                       proposal["proposed_value"])
-    if cell_id not in config or parameter not in m.PARAMETERS or not isinstance(value, int):
+    sim = None
+    if cell_id in config and parameter in m.PARAMETERS and isinstance(value, int):
+        sim = (simulate(cell_id, parameter, value) if simulate else
+               m.simulate_change(layout, config, cell_id, parameter, value))
+    if sim is None or "error" in sim:
         return {"proposal_id": pid, "risk": "high", "recommendation": "reject",
-                "checks": {"known_cell_and_parameter": False}, "cross_agent": {}, "predicted": None,
-                "reasons": [f"{cell_id}.{parameter} = {value!r} is not a change the network supports"]}
+                "checks": {"known_cell_and_parameter": False}, "cross_agent": {}, "failed": ["known_cell_and_parameter"],
+                "predicted": {"phones_dropped_now": snap["network"]["phones_dropped"],
+                              "phones_dropped_after": snap["network"]["phones_dropped"], "deltas": {}, "simulation_ref": None},
+                "reasons": [f"{cell_id}.{parameter} = {value!r} is not a change the network supports"
+                            + (f": {sim['error']}" if sim else "")]}
     current = int(config[cell_id][parameter])
-    sim = m.simulate_change(layout, config, cell_id, parameter, value)
     deltas = sim["deltas"]
     dropped_delta = deltas["network.phones_dropped"]
     mismatched = evidence_mismatches(evidence, snap)

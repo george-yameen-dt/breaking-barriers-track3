@@ -6,8 +6,9 @@
 4. Hands everything to the Risk critic, the first agent to see all three reports side by side.
 5. Recommends one fix (its model ranks, code guards) and probes Cedar with a change that must be denied.
 6. Asks a person to approve that exact proposal (its sha256).
-7. Asks Cedar whether the approved change may be applied. Writing it to the network goes through the AgentCore
-   Gateway and is not built yet, so a run stops at "ready to apply" with the predicted outcome.
+7. Asks Cedar whether the approved change may be applied. On the Viavi twin it is then applied, measured one window
+   later and undone if it made things worse (apply_and_verify). On the replay network the write would go through the
+   AgentCore Gateway, which is not built yet, so a replay run stops at "ready to apply" with the predicted outcome.
 8. A rule grader and an independent judge from another model family grade the run.
 """
 
@@ -215,7 +216,7 @@ def recommend(run, say):
     not_eligible = [{"proposal_id": pid, "why": a["checks"] and (run.checks[pid]["failed"] or [a["recommendation"]])}
                     for pid, a in run.assessments.items() if not a["eligible"]]
     try:
-        answer = run_agent(cp, ORCHESTRATOR, MODEL, PROMPT.read_text(),
+        answer = run_agent(cp, ORCHESTRATOR, MODEL, PROMPT.read_text() + getattr(run.net, "prompt_note", ""),
                            json.dumps({"alert": run.alert, "eligible": view, "not_eligible": not_eligible}), {},
                            validate=lambda a: recommendation_problems(a, ids))
     except Exception as e:  # the orchestrator's model failing must not stop the run: code's ranking decides
@@ -292,7 +293,8 @@ def grade(run, chosen: dict, approved: bool, say) -> dict:
     cp.record("graded_rules", proposal_id=chosen["proposal_id"], matches_acceptable_fix=rule_ok, owner=chosen["agent"],
               expected_owner=fault.get("expected_owner"), owner_matches=chosen["agent"] == fault.get("expected_owner"))
     payload = {"injected_fault": {"description": fault["description"], **fault["injection"]},
-               "measured": run.net.snapshot["network"],
+               "measured": getattr(run, "incident_snapshot", run.net.snapshot)["network"],
+               "measured_after_change": getattr(run, "verification", None),
                "findings": {r: rep.get("findings") for r, rep in run.reports.items()},
                "chosen_fix": {k: chosen[k] for k in ("agent", "cell_id", "parameter", "current_value", "proposed_value", "rationale")},
                "predicted_phones_without_service": run.checks[chosen["proposal_id"]]["predicted"], "approved_by_person": approved}
@@ -306,11 +308,56 @@ def grade(run, chosen: dict, approved: bool, say) -> dict:
     return {"rules": rule_ok, "judge": verdict}
 
 
+VERIFY_MARGIN = 0.05  # phones without service: more than this many above the level before the change is "worse"
+
+
+def apply_and_verify(run, chosen: dict, ctx: dict, approval_id: str, predicted: str, say) -> str:
+    """Hands, on a network that takes changes (the twin): apply the approved change, measure the next window, and undo
+    it if more phones are without service than before. The undo is its own Cedar decision (revert-exact)."""
+    cp, net = run.cp, run.net
+    cell_id, parameter, old, new = chosen["cell_id"], chosen["parameter"], ctx["old_value"], ctx["new_value"]
+    tag = f"trace_id={cp.trace_id} run_id={cp.run_id} approval={approval_id} agent={chosen['agent']}"
+    before = net.snapshot["network"]["phones_dropped"]
+    reply = net.apply(cell_id, parameter, new, reason=f"{tag} action={chosen['proposal_id']}")
+    cp.record("applied", who=ORCHESTRATOR, approval_id=approval_id, proposal_id=chosen["proposal_id"], cell_id=cell_id,
+              parameter=parameter, old_value=old, new_value=new, network=net.source, reply=reply)
+    if not reply.get("accepted"):
+        say(f"    the twin refused the change: {json.dumps(reply)[:150]}")
+        return f"approved, but the network refused {cell_id} {parameter} {old} -> {new}"
+    snap = net.measure()
+    after = snap["network"]["phones_dropped"]
+    status = "VERIFY_FAILED" if after > before + VERIFY_MARGIN else "VERIFIED"
+    cp.record("kpi_snapshot", who=ORCHESTRATOR, source=net.source, snapshot_sha256=snap["snapshot_sha256"], snapshot=snap,
+              purpose="verification, one window after the change")
+    run.verification = {"status": status, "phones_without_service_before": before, "predicted": predicted,
+                        "measured_after": after, "window_s": snap.get("window_s")}
+    cp.record("verification", who=ORCHESTRATOR, proposal_id=chosen["proposal_id"], cell_id=cell_id, parameter=parameter,
+              **run.verification)
+    say(f"    applied {cell_id} {parameter} {old} -> {new}; one window later phones without service {before} -> {after} "
+        f"(predicted {predicted}): {status}")
+    if status == "VERIFIED":
+        return (f"applied and verified {chosen['proposal_id']} ({cell_id} {parameter} {old} -> {new}): "
+                f"phones without service {before} -> {after}")
+    rctx = {"parameter": parameter, "old_value": new, "new_value": old, "ledger_status": status, "restores_old_value": True}
+    d = cp.decide(f'Agent::"{ORCHESTRATOR}"', "revert_cell_configuration", f'Cell::"{cell_id}"', rctx)
+    if d["decision"] != "Allow":
+        cp.record("revert_denied", who=ORCHESTRATOR, cell_id=cell_id, parameter=parameter, policies=d["policies"])
+        say(f"    undo denied by Cedar ({', '.join(d['policies'])}): a person must act")
+        return f"applied {chosen['proposal_id']}; it made things worse and the undo was denied: a person must act"
+    reply = net.apply(cell_id, parameter, old, reason=f"{tag} action=undo {chosen['proposal_id']}")
+    snap = net.measure() if reply.get("accepted") else net.snapshot
+    cp.record("reverted", who=ORCHESTRATOR, cell_id=cell_id, parameter=parameter, restored_value=old, reply=reply,
+              policies=d["policies"], phones_without_service_after_undo=snap["network"]["phones_dropped"])
+    say(f"    undone ({', '.join(d['policies'])}): {cell_id} {parameter} back to {old}; phones without service now "
+        f"{snap['network']['phones_dropped']}")
+    return f"applied {chosen['proposal_id']}; it made things worse ({before} -> {after}), so it was undone"
+
+
 def run_incident(cp, net, approve, use_dynatrace: bool = False, pause_operator: str = "", say=print, remote=None) -> dict:
     run = Run(cp, net, use_dynatrace)
     if remote:  # the other four agents run in their own AgentCore runtimes
         run.call_specialist, run.call_critic, run.ping = remote.specialist, remote.critic, remote.ping
-    snap = net.snapshot
+    snap = run.incident_snapshot = net.snapshot
     cp.decide(f'Agent::"{ORCHESTRATOR}"', "kpi_snapshot", NETWORK, {})
     cp.record("kpi_snapshot", who=ORCHESTRATOR, source=net.source, snapshot_sha256=snap["snapshot_sha256"], snapshot=snap)
     cp.record("alert", who=ORCHESTRATOR, text=run.alert)
@@ -330,7 +377,7 @@ def run_incident(cp, net, approve, use_dynatrace: bool = False, pause_operator: 
     for p in run.proposals:
         pid = p["proposal_id"]
         run.checks[pid] = risk_checks.check(p, run.evidence[pid], snap, net.layout, net.config, net.ledger,
-                                            run.proposals, run.reports)
+                                            run.proposals, run.reports, simulate=net.simulate)
         cp.record("risk_checks", who="code", proposal_id=pid, risk=run.checks[pid]["risk"],
                   recommendation=run.checks[pid]["recommendation"], failed=run.checks[pid]["failed"],
                   checks=run.checks[pid]["checks"], cross_agent=run.checks[pid]["cross_agent"],
@@ -361,18 +408,24 @@ def run_incident(cp, net, approve, use_dynatrace: bool = False, pause_operator: 
     ctx = apply_context(net, chosen["cell_id"], chosen["parameter"], chosen["proposed_value"], approval_valid=valid)
     d = cp.decide(f'Agent::"{ORCHESTRATOR}"', "apply_cell_configuration", f'Cell::"{chosen["cell_id"]}"', ctx)
     if d["decision"] == "Allow":
+        hands = getattr(net, "can_apply", False)  # the twin takes changes; the replay network does not
         cp.record("apply_ready", who=ORCHESTRATOR, approval_id=approval_id, proposal_id=chosen["proposal_id"],
                   cell_id=chosen["cell_id"], parameter=chosen["parameter"], old_value=ctx["old_value"],
                   new_value=ctx["new_value"], predicted_phones_without_service=predicted,
-                  note="not executed: the network write (AgentCore Gateway -> Lambda -> simulator) is the next build step")
+                  note=f"applying it on {net.source}" if hands else
+                  "not executed: the network write (AgentCore Gateway -> Lambda -> simulator) is the next build step")
+        if hands:
+            say(f" 7. Cedar on apply: Allow ({', '.join(d['policies'])}) -> applying it on {net.source}")
+            outcome = apply_and_verify(run, chosen, ctx, approval_id, predicted, say)
+        else:
+            say(f" 7. Cedar on apply: Allow ({', '.join(d['policies'])}) -> ready to apply; predicted phones without "
+                f"service {predicted}. Nothing was changed: the Gateway write path is the next step.")
+            outcome = f"ready to apply {chosen['proposal_id']} ({chosen['cell_id']} {chosen['parameter']} {ctx['old_value']} -> {ctx['new_value']})"
         again = apply_context(net, chosen["cell_id"], chosen["parameter"], chosen["proposed_value"], approval_valid=valid, minutes=0)
         d2 = cp.decide(f'Agent::"{ORCHESTRATOR}"', "apply_cell_configuration", f'Cell::"{chosen["cell_id"]}"', again)
         cp.record("stabilization_probe", who=ORCHESTRATOR, cell_id=chosen["cell_id"], decision=d2["decision"],
                   policies=d2["policies"], note="the same cell again right after this change")
-        say(f" 7. Cedar on apply: Allow ({', '.join(d['policies'])}) -> ready to apply; predicted phones without "
-            f"service {predicted}. Nothing was changed: the Gateway write path is the next step.")
         say(f"    stabilization probe: the same cell again right after: {d2['decision']} ({', '.join(d2['policies'])})")
-        outcome = f"ready to apply {chosen['proposal_id']} ({chosen['cell_id']} {chosen['parameter']} {ctx['old_value']} -> {ctx['new_value']})"
     else:
         say(f" 7. Cedar on apply: Deny ({', '.join(d['policies'])})")
         outcome = f"apply denied: {', '.join(d['policies'])}"

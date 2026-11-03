@@ -1,0 +1,928 @@
+{
+ "scenario": "team04-track3-4cell-faults",
+ "trace_id": "61d6147b58db6ee4fb022d45d540cfa2",
+ "windows": [
+  {
+   "t": [
+    0,
+    60
+   ],
+   "cells": {
+    "S1/B3/C1": {
+     "ues": 13.0,
+     "thp_dl": 43.05,
+     "prb_dl": 50.0,
+     "power": 40.0,
+     "energy_w": 339.0,
+     "rsrp_mean": -79.85,
+     "rsrp_p10": -87.0,
+     "sinr_mean": 10.61,
+     "sinr_p10": 0.0,
+     "samples": 780.0
+    },
+    "S2/B3/C1": {
+     "ues": 3.0,
+     "thp_dl": 54.0,
+     "prb_dl": 45.78,
+     "power": 40.0,
+     "energy_w": 316.97,
+     "rsrp_mean": -100.67,
+     "rsrp_p10": -115.0,
+     "sinr_mean": 12.47,
+     "sinr_p10": 4.0,
+     "samples": 180.0
+    },
+    "S3/B3/C1": {
+     "ues": 12.0,
+     "thp_dl": 105.92,
+     "prb_dl": 50.0,
+     "power": 40.0,
+     "energy_w": 339.0,
+     "rsrp_mean": -90.5,
+     "rsrp_p10": -114.0,
+     "sinr_mean": 22.53,
+     "sinr_p10": 5.0,
+     "samples": 720.0
+    },
+    "S4/B3/C1": {
+     "ues": 11.0,
+     "thp_dl": 39.04,
+     "prb_dl": 50.0,
+     "power": 40.0,
+     "energy_w": 339.0,
+     "rsrp_mean": -93.82,
+     "rsrp_p10": -112.0,
+     "sinr_mean": 6.67,
+     "sinr_p10": 3.0,
+     "samples": 660.0
+    }
+   },
+   "network": {
+    "ue_samples": 2340.0,
+    "coverage_ratio_rsrp_gt_-110": 0.769,
+    "ue_thp_dl_mean": 6.21
+   }
+  },
+  {
+   "t": [
+    60,
+    120
+   ],
+   "cells": {
+    "S1/B3/C1": {
+     "ues": 13.0,
+     "thp_dl": 40.06,
+     "prb_dl": 50.0,
+     "power": 40.0,
+     "energy_w": 339.0,
+     "rsrp_mean": -79.85,
+     "rsrp_p10": -87.0,
+     "sinr_mean": 10.15,
+     "sinr_p10": 0.0,
+     "samples": 780.0
+    },
+    "S2/B3/C1": {
+     "ues": 3.0,
+     "thp_dl": 54.0,
+     "prb_dl": 46.0,
+     "power": 40.0,
+     "energy_w": 318.1,
+     "rsrp_mean": -100.67,
+     "rsrp_p10": -115.0,
+     "sinr_mean": 12.33,
+     "sinr_p10": 4.0,
+     "samples": 180.0
+    },
+    "S3/B3/C1": {
+     "ues": 12.0,
+     "thp_dl": 105.69,
+     "prb_dl": 50.0,
+     "power": 40.0,
+     "energy_w": 339.0,
+     "rsrp_mean": -90.5,
+     "rsrp_p10": -114.0,
+     "sinr_mean": 22.5,
+     "sinr_p10": 5.0,
+     "samples": 720.0
+    },
+    "S4/B3/C1": {
+     "ues": 11.0,
+     "thp_dl": 37.59,
+     "prb_dl": 50.0,
+     "power": 40.0,
+     "energy_w": 339.0,
+     "rsrp_mean": -93.82,
+     "rsrp_p10": -112.0,
+     "sinr_mean": 6.36,
+     "sinr_p10": 3.0,
+     "samples": 660.0
+    }
+   },
+   "network": {
+    "ue_samples": 2340.0,
+    "coverage_ratio_rsrp_gt_-110": 0.769,
+    "ue_thp_dl_mean": 6.09
+   }
+  },
+  {
+   "t": [
+    120,
+    180
+   ],
+   "cells": {
+    "S1/B3/C1": {
+     "ues": 13.0,
+     "thp_dl": 40.06,
+     "prb_dl": 50.0,
+     "power": 40.0,
+     "energy_w": 339.0,
+     "rsrp_mean": -79.85,
+     "rsrp_p10": -87.0,
+     "sinr_mean": 10.15,
+     "sinr_p10": 0.0,
+     "samples": 780.0
+    },
+    "S2/B3/C1": {
+     "ues": 2.03,
+     "thp_dl": 35.57,
+     "prb_dl": 41.3,
+     "power": 40.0,
+     "energy_w": 293.54,
+     "rsrp_mean": -108.85,
+     "rsrp_p10": -110.0,
+     "sinr_mean": 6.31,
+     "sinr_p10": 6.0,
+     "samples": 122.0
+    },
+    "S3/B3/C1": {
+     "ues": 12.97,
+     "thp_dl": 39.56,
+     "prb_dl": 50.0,
+     "power": 40.0,
+     "energy_w": 339.0,
+     "rsrp_mean": -93.07,
+     "rsrp_p10": -118.0,
+     "sinr_mean": 20.08,
+     "sinr_p10": 1.0,
+     "samples": 778.0
+    },
+    "S4/B3/C1": {
+     "ues": 11.0,
+     "thp_dl": 37.54,
+     "prb_dl": 50.0,
+     "power": 40.0,
+     "energy_w": 339.0,
+     "rsrp_mean": -93.82,
+     "rsrp_p10": -112.0,
+     "sinr_mean": 6.35,
+     "sinr_p10": 3.0,
+     "samples": 660.0
+    }
+   },
+   "network": {
+    "ue_samples": 2340.0,
+    "coverage_ratio_rsrp_gt_-110": 0.744,
+    "ue_thp_dl_mean": 3.92
+   }
+  },
+  {
+   "t": [
+    180,
+    240
+   ],
+   "cells": {
+    "S1/B3/C1": {
+     "ues": 13.0,
+     "thp_dl": 74.0,
+     "prb_dl": 50.0,
+     "power": 44.0,
+     "energy_w": 384.33,
+     "rsrp_mean": -74.62,
+     "rsrp_p10": -81.0,
+     "sinr_mean": 15.31,
+     "sinr_p10": 5.0,
+     "samples": 780.0
+    },
+    "S2/B3/C1": {
+     "ues": 2.0,
+     "thp_dl": 36.0,
+     "prb_dl": 41.0,
+     "power": 40.0,
+     "energy_w": 291.98,
+     "rsrp_mean": -108.5,
+     "rsrp_p10": -110.0,
+     "sinr_mean": 6.5,
+     "sinr_p10": 6.0,
+     "samples": 120.0
+    },
+    "S3/B3/C1": {
+     "ues": 13.0,
+     "thp_dl": 37.28,
+     "prb_dl": 50.0,
+     "power": 40.0,
+     "energy_w": 339.0,
+     "rsrp_mean": -93.15,
+     "rsrp_p10": -118.0,
+     "sinr_mean": 20.0,
+     "sinr_p10": 1.0,
+     "samples": 780.0
+    },
+    "S4/B3/C1": {
+     "ues": 11.0,
+     "thp_dl": 32.03,
+     "prb_dl": 50.0,
+     "power": 40.0,
+     "energy_w": 339.0,
+     "rsrp_mean": -93.82,
+     "rsrp_p10": -112.0,
+     "sinr_mean": 6.0,
+     "sinr_p10": 0.0,
+     "samples": 660.0
+    }
+   },
+   "network": {
+    "ue_samples": 2340.0,
+    "coverage_ratio_rsrp_gt_-110": 0.744,
+    "ue_thp_dl_mean": 4.6
+   }
+  },
+  {
+   "t": [
+    240,
+    300
+   ],
+   "cells": {
+    "S1/B3/C1": {
+     "ues": 13.0,
+     "thp_dl": 74.0,
+     "prb_dl": 50.0,
+     "power": 44.0,
+     "energy_w": 384.33,
+     "rsrp_mean": -74.62,
+     "rsrp_p10": -81.0,
+     "sinr_mean": 15.31,
+     "sinr_p10": 5.0,
+     "samples": 780.0
+    },
+    "S2/B3/C1": {
+     "ues": 2.0,
+     "thp_dl": 36.0,
+     "prb_dl": 41.0,
+     "power": 40.0,
+     "energy_w": 291.98,
+     "rsrp_mean": -108.5,
+     "rsrp_p10": -110.0,
+     "sinr_mean": 6.5,
+     "sinr_p10": 6.0,
+     "samples": 120.0
+    },
+    "S3/B3/C1": {
+     "ues": 13.0,
+     "thp_dl": 37.28,
+     "prb_dl": 50.0,
+     "power": 40.0,
+     "energy_w": 339.0,
+     "rsrp_mean": -93.15,
+     "rsrp_p10": -118.0,
+     "sinr_mean": 20.0,
+     "sinr_p10": 1.0,
+     "samples": 780.0
+    },
+    "S4/B3/C1": {
+     "ues": 11.0,
+     "thp_dl": 32.03,
+     "prb_dl": 50.0,
+     "power": 40.0,
+     "energy_w": 339.0,
+     "rsrp_mean": -93.82,
+     "rsrp_p10": -112.0,
+     "sinr_mean": 6.0,
+     "sinr_p10": 0.0,
+     "samples": 660.0
+    }
+   },
+   "network": {
+    "ue_samples": 2340.0,
+    "coverage_ratio_rsrp_gt_-110": 0.744,
+    "ue_thp_dl_mean": 4.6
+   }
+  },
+  {
+   "t": [
+    300,
+    360
+   ],
+   "cells": {
+    "S1/B3/C1": {
+     "ues": 13.1,
+     "thp_dl": 72.03,
+     "prb_dl": 50.0,
+     "power": 44.0,
+     "energy_w": 384.33,
+     "rsrp_mean": -75.24,
+     "rsrp_p10": -81.0,
+     "sinr_mean": 14.95,
+     "sinr_p10": 5.0,
+     "samples": 786.0
+    },
+    "S2/B3/C1": {
+     "ues": 3.9,
+     "thp_dl": 11.6,
+     "prb_dl": 48.4,
+     "power": 40.0,
+     "energy_w": 330.64,
+     "rsrp_mean": -120.92,
+     "rsrp_p10": -138.0,
+     "sinr_mean": 5.56,
+     "sinr_p10": -11.0,
+     "samples": 234.0
+    },
+    "S3/B3/C1": {
+     "ues": 0.0,
+     "thp_dl": 0.0,
+     "prb_dl": 0.0,
+     "power": -999.0,
+     "energy_w": 3.0
+    },
+    "S4/B3/C1": {
+     "ues": 20.07,
+     "thp_dl": 35.69,
+     "prb_dl": 50.0,
+     "power": 40.0,
+     "energy_w": 339.0,
+     "rsrp_mean": -106.24,
+     "rsrp_p10": -134.0,
+     "sinr_mean": 4.21,
+     "sinr_p10": -12.0,
+     "samples": 1204.0
+    }
+   },
+   "network": {
+    "ue_samples": 2224.0,
+    "coverage_ratio_rsrp_gt_-110": 0.621,
+    "ue_thp_dl_mean": 3.22
+   }
+  },
+  {
+   "t": [
+    360,
+    420
+   ],
+   "cells": {
+    "S1/B3/C1": {
+     "ues": 12.03,
+     "thp_dl": 50.59,
+     "prb_dl": 50.0,
+     "power": 44.0,
+     "energy_w": 384.33,
+     "rsrp_mean": -74.58,
+     "rsrp_p10": -81.0,
+     "sinr_mean": 12.7,
+     "sinr_p10": 3.0,
+     "samples": 722.0
+    },
+    "S2/B3/C1": {
+     "ues": 4.0,
+     "thp_dl": 10.31,
+     "prb_dl": 50.0,
+     "power": 40.0,
+     "energy_w": 339.0,
+     "rsrp_mean": -121.25,
+     "rsrp_p10": -138.0,
+     "sinr_mean": 5.25,
+     "sinr_p10": -11.0,
+     "samples": 240.0
+    },
+    "S3/B3/C1": {
+     "ues": 0.0,
+     "thp_dl": 0.0,
+     "prb_dl": 0.0,
+     "power": -999.0,
+     "energy_w": 3.0
+    },
+    "S4/B3/C1": {
+     "ues": 19.0,
+     "thp_dl": 40.32,
+     "prb_dl": 50.0,
+     "power": 44.0,
+     "energy_w": 384.33,
+     "rsrp_mean": -99.92,
+     "rsrp_p10": -131.0,
+     "sinr_mean": 7.38,
+     "sinr_p10": -9.0,
+     "samples": 1140.0
+    }
+   },
+   "network": {
+    "ue_samples": 2102.0,
+    "coverage_ratio_rsrp_gt_-110": 0.771,
+    "ue_thp_dl_mean": 2.89
+   }
+  },
+  {
+   "t": [
+    420,
+    480
+   ],
+   "cells": {
+    "S1/B3/C1": {
+     "ues": 12.0,
+     "thp_dl": 51.06,
+     "prb_dl": 50.0,
+     "power": 44.0,
+     "energy_w": 384.33,
+     "rsrp_mean": -74.58,
+     "rsrp_p10": -81.0,
+     "sinr_mean": 12.75,
+     "sinr_p10": 3.0,
+     "samples": 720.0
+    },
+    "S2/B3/C1": {
+     "ues": 4.0,
+     "thp_dl": 10.31,
+     "prb_dl": 50.0,
+     "power": 40.0,
+     "energy_w": 339.0,
+     "rsrp_mean": -121.25,
+     "rsrp_p10": -138.0,
+     "sinr_mean": 5.25,
+     "sinr_p10": -11.0,
+     "samples": 240.0
+    },
+    "S3/B3/C1": {
+     "ues": 0.0,
+     "thp_dl": 0.0,
+     "prb_dl": 0.0,
+     "power": -999.0,
+     "energy_w": 3.0
+    },
+    "S4/B3/C1": {
+     "ues": 19.0,
+     "thp_dl": 40.41,
+     "prb_dl": 50.0,
+     "power": 44.0,
+     "energy_w": 384.33,
+     "rsrp_mean": -99.79,
+     "rsrp_p10": -131.0,
+     "sinr_mean": 7.42,
+     "sinr_p10": -9.0,
+     "samples": 1140.0
+    }
+   },
+   "network": {
+    "ue_samples": 2100.0,
+    "coverage_ratio_rsrp_gt_-110": 0.771,
+    "ue_thp_dl_mean": 2.91
+   }
+  }
+ ],
+ "commands": [
+  {
+   "sim_time": 180,
+   "command_type": "tx_power",
+   "params": {
+    "cell": "S2/B3/C1",
+    "power": 60
+   },
+   "label": "out-of-range power 60 dBm (expect refusal)",
+   "reply": {
+    "error": "simulation_command: Error executing tool simulation_command: power=60 is outside the supported range 0..50 dBm \u2014 get_available_actions gives each param's range and allowed values."
+   }
+  },
+  {
+   "sim_time": 180,
+   "command_type": "tx_power",
+   "params": {
+    "cell": "S1/B3/C1",
+    "power": 44
+   },
+   "label": "S1 power 40->44 to cover degraded S2",
+   "reply": {
+    "accepted": true,
+    "command_type": "tx_power"
+   }
+  },
+  {
+   "sim_time": 180,
+   "command_type": "antenna_tilt",
+   "params": {
+    "cell": "S1/B3/C1",
+    "tilt": 4
+   },
+   "label": "S1 uptilt 6->4 to extend coverage",
+   "reply": {
+    "accepted": true,
+    "command_type": "antenna_tilt"
+   }
+  },
+  {
+   "sim_time": 360,
+   "command_type": "tx_power",
+   "params": {
+    "cell": "S4/B3/C1",
+    "power": 44
+   },
+   "label": "S4 power 40->44 to cover failed S3",
+   "reply": {
+    "accepted": true,
+    "command_type": "tx_power"
+   }
+  }
+ ],
+ "events": [
+  {
+   "time": "1704067380000",
+   "event_type": "O1\\ CM\\ update",
+   "cell": "",
+   "description": "[{'cell': 'S1/B3/C1', 'o1_function': 'CommonBeamformingFunction', 'attributes': {'digitalTilt': 40}, 'objectInstance': 'ManagedElement=1193046,GnbDuFunction=1,NrSectorCarrier=1,CommonBeamformingFunction=1'}]",
+   "reason": "trace_id=61d6147b58db6ee4fb022d45d540cfa2 agent=proof action=S1 uptilt 6->4 to extend coverage"
+  },
+  {
+   "time": "1704067560000",
+   "event_type": "O1\\ CM\\ update",
+   "cell": "",
+   "description": "[{'cell': 'S4/B3/C1', 'o1_function': 'NrSectorCarrier', 'attributes': {'configuredMaxTxPower': 44}, 'objectInstance': 'ManagedElement=1193046,GnbDuFunction=4,NrSectorCarrier=4'}]",
+   "reason": "trace_id=61d6147b58db6ee4fb022d45d540cfa2 agent=proof action=S4 power 40->44 to cover failed S3"
+  },
+  {
+   "time": "1704067502000",
+   "event_type": "RRC\\ Release",
+   "cell": "",
+   "description": "Pedestrian-28: RRC Release from S4/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067502000",
+   "event_type": "RRC\\ Release",
+   "cell": "",
+   "description": "Pedestrian-38: RRC Release from S4/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067561000",
+   "event_type": "RRC\\ Release",
+   "cell": "",
+   "description": "Pedestrian-24: RRC Release from S4/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067561000",
+   "event_type": "RRC\\ Release",
+   "cell": "",
+   "description": "Pedestrian-35: RRC Release from S4/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067380000",
+   "event_type": "O1_update",
+   "cell": "S1/B3/C1",
+   "description": "configuredMaxTxPower=44",
+   "reason": ""
+  },
+  {
+   "time": "1704067380000",
+   "event_type": "O1_update",
+   "cell": "S1/B3/C1",
+   "description": "digitalTilt=40",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S1/B3/C1",
+   "description": "Pedestrian-10: RRC Connected to S1/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S1/B3/C1",
+   "description": "Pedestrian-11: RRC Connected to S1/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S1/B3/C1",
+   "description": "Pedestrian-12: RRC Connected to S1/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S1/B3/C1",
+   "description": "Pedestrian-14: RRC Connected to S1/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S1/B3/C1",
+   "description": "Pedestrian-17: RRC Connected to S1/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S1/B3/C1",
+   "description": "Pedestrian-18: RRC Connected to S1/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S1/B3/C1",
+   "description": "Pedestrian-19: RRC Connected to S1/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S1/B3/C1",
+   "description": "Pedestrian-20: RRC Connected to S1/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S1/B3/C1",
+   "description": "Pedestrian-2: RRC Connected to S1/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S1/B3/C1",
+   "description": "Pedestrian-3: RRC Connected to S1/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S1/B3/C1",
+   "description": "Pedestrian-5: RRC Connected to S1/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S1/B3/C1",
+   "description": "Pedestrian-6: RRC Connected to S1/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S1/B3/C1",
+   "description": "Pedestrian-8: RRC Connected to S1/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067320000",
+   "event_type": "Anomaly\\ State\\ Change",
+   "cell": "S2/B3/C1",
+   "description": "raise radio (fault-S2-radio-degradation)",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S2/B3/C1",
+   "description": "Pedestrian-42: RRC Connected to S2/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S2/B3/C1",
+   "description": "Pedestrian-45: RRC Connected to S2/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S2/B3/C1",
+   "description": "Pedestrian-54: RRC Connected to S2/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067500000",
+   "event_type": "Anomaly\\ State\\ Change",
+   "cell": "S3/B3/C1",
+   "description": "raise commercialpowerfailure (fault-S3-power-failure)",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S3/B3/C1",
+   "description": "Pedestrian-24: RRC Connected to S3/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S3/B3/C1",
+   "description": "Pedestrian-27: RRC Connected to S3/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S3/B3/C1",
+   "description": "Pedestrian-28: RRC Connected to S3/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S3/B3/C1",
+   "description": "Pedestrian-30: RRC Connected to S3/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S3/B3/C1",
+   "description": "Pedestrian-31: RRC Connected to S3/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S3/B3/C1",
+   "description": "Pedestrian-33: RRC Connected to S3/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S3/B3/C1",
+   "description": "Pedestrian-35: RRC Connected to S3/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S3/B3/C1",
+   "description": "Pedestrian-38: RRC Connected to S3/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S3/B3/C1",
+   "description": "Pedestrian-40: RRC Connected to S3/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S3/B3/C1",
+   "description": "Pedestrian-46: RRC Connected to S3/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S3/B3/C1",
+   "description": "Pedestrian-48: RRC Connected to S3/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S3/B3/C1",
+   "description": "Pedestrian-50: RRC Connected to S3/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067500000",
+   "event_type": "turn_off",
+   "cell": "S3/B3/C1",
+   "description": "shutting down immediately (administrativeState=LOCKED)",
+   "reason": ""
+  },
+  {
+   "time": "1704067560000",
+   "event_type": "O1_update",
+   "cell": "S4/B3/C1",
+   "description": "configuredMaxTxPower=44",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S4/B3/C1",
+   "description": "Pedestrian-13: RRC Connected to S4/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S4/B3/C1",
+   "description": "Pedestrian-15: RRC Connected to S4/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S4/B3/C1",
+   "description": "Pedestrian-16: RRC Connected to S4/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S4/B3/C1",
+   "description": "Pedestrian-1: RRC Connected to S4/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S4/B3/C1",
+   "description": "Pedestrian-23: RRC Connected to S4/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S4/B3/C1",
+   "description": "Pedestrian-25: RRC Connected to S4/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S4/B3/C1",
+   "description": "Pedestrian-26: RRC Connected to S4/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S4/B3/C1",
+   "description": "Pedestrian-37: RRC Connected to S4/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S4/B3/C1",
+   "description": "Pedestrian-4: RRC Connected to S4/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S4/B3/C1",
+   "description": "Pedestrian-7: RRC Connected to S4/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067200000",
+   "event_type": "RRC\\ Connected",
+   "cell": "S4/B3/C1",
+   "description": "Pedestrian-9: RRC Connected to S4/B3/C1",
+   "reason": ""
+  },
+  {
+   "time": "1704067501000",
+   "event_type": "Radio\\ Link\\ Failure",
+   "cell": "S4/B3/C1",
+   "description": "UE Pedestrian-28 lost connection to S4/B3/C1 (RSRP -145.78151250383644 < -140)",
+   "reason": "RSRP -145.78151250383644 < -140"
+  },
+  {
+   "time": "1704067501000",
+   "event_type": "Radio\\ Link\\ Failure",
+   "cell": "S4/B3/C1",
+   "description": "UE Pedestrian-38 lost connection to S4/B3/C1 (RSRP -153.78151250383644 < -140)",
+   "reason": "RSRP -153.78151250383644 < -140"
+  },
+  {
+   "time": "1704067560000",
+   "event_type": "Radio\\ Link\\ Failure",
+   "cell": "S4/B3/C1",
+   "description": "UE Pedestrian-24 lost connection to S4/B3/C1 (RSRP -140.78151250383644 < -140)",
+   "reason": "RSRP -140.78151250383644 < -140"
+  },
+  {
+   "time": "1704067560000",
+   "event_type": "Radio\\ Link\\ Failure",
+   "cell": "S4/B3/C1",
+   "description": "UE Pedestrian-35 lost connection to S4/B3/C1 (RSRP -144.78151250383644 < -140)",
+   "reason": "RSRP -144.78151250383644 < -140"
+  }
+ ],
+ "start": {
+  "test_id": "rsg-14",
+  "status": "STARTING"
+ },
+ "stop": {
+  "test_id": "rsg-14",
+  "accepted": true,
+  "stopped": true
+ }
+}

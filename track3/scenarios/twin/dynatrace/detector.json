@@ -1,0 +1,38 @@
+{
+  "title": "Viavi twin: phones without service",
+  "description": "Record-based Davis anomaly detector on the Viavi twin's network records (service.name viavi-twin, sent by track3/adapters/twin_dt.py). Fires while the newest record of the last 3 minutes shows more than 13 phones without service (RSRP at or below -110 dBm). In Stan's saved run the twin has 9-10 before the S3 power failure, 16 after it and 12 after the fix. Breaking Barriers Track 3.",
+  "enabled": true,
+  "source": "dtctl",
+  "analyzer": {
+    "name": "dt.statistics.anomaly_detection.RecordAnomalyDetectionAnalyzer",
+    "input": [
+      {
+        "key": "query.expression",
+        "value": "fetch logs, from: -3m\n| filter service.name == \"viavi-twin\" and twin.kind == \"network\"\n| sort timestamp desc\n| limit 1\n| fieldsAdd phones = toDouble(twin.phones_without_service)\n| filter phones > 13\n| fields phones, active = twin.phones_active, worst_cell = twin.worst_cell, dark_cells = twin.dark_cells, run_id = twin.run_id"
+      }
+    ]
+  },
+  "eventTemplate": {
+    "properties": [
+      {
+        "key": "event.type",
+        "value": "ERROR_EVENT"
+      },
+      {
+        "key": "event.name",
+        "value": "Phones without service on the Viavi twin"
+      },
+      {
+        "key": "event.description",
+        "value": "The twin reports {phones} of {active} phones without service (RSRP at or below -110 dBm). Dark cells: {dark_cells}. Most of them are near cell {worst_cell}. Run {run_id}."
+      },
+      {
+        "key": "dt.alert_group",
+        "value": "viavi-twin"
+      }
+    ]
+  },
+  "executionSettings": {
+    "actor": "2b8857d0-a27a-4f03-b182-432ef445e143"
+  }
+}
