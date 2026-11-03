@@ -7,12 +7,14 @@ from pathlib import Path
 import pytest
 
 import change_control as cc
+from policy import critical_power_step
 from checkpoint import Checkpoint, Refused
 
 POLICIES = Path(__file__).resolve().parent.parent / "policies"
 CURRENT = (POLICIES / "swarm.cedar").read_text()
 SCHEMA = (POLICIES / "swarm.cedarschema").read_text()
-TIGHTER = CURRENT.replace("context.delta > 4", "context.delta > 3")           # critical power step: +4 dB becomes +3 dB
+STEP = critical_power_step(CURRENT)
+TIGHTER = CURRENT.replace(f"context.delta > {STEP}", f"context.delta > {STEP - 1}")  # the critical power step, one dB tighter
 NO_POWER_RANGE = re.sub(r'@id\("power-range"\)\nforbid[^;]*;', "", CURRENT)      # a candidate that drops a safety rule
 
 
@@ -63,7 +65,7 @@ def test_a_syntax_error_is_refused_with_the_parsers_message():
 
 
 def test_a_misspelled_context_key_is_refused_by_the_schema():
-    ok, errors = cc.validate_candidate(CURRENT.replace("context.delta > 4", "context.detla > 4"), SCHEMA)
+    ok, errors = cc.validate_candidate(CURRENT.replace(f"context.delta > {STEP}", f"context.detla > {STEP}"), SCHEMA)
     assert ok is False and errors
 
 

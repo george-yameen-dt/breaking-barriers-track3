@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import cedarpy
 
 import risk_checks as rc
+from policy import critical_power_step
 from adapters import criticality as crit
 from agents.governance import cedar_decide
 from test_twin import chosen, twin_net
@@ -15,6 +16,7 @@ POLICIES = Path(__file__).resolve().parent.parent / "policies"
 TEXT = (POLICIES / "swarm.cedar").read_text()
 IDS = re.findall(r'@id\("([^"]+)"\)', TEXT)
 ORCH = 'Agent::"orchestrator"'
+STEP = critical_power_step()  # the critical-cell step in the policy today
 REG = {"S2/B3/C1": {"class": "hospital", "name": "Hospital (synthetic)"}, "S4/B3/C1": {"class": "emergency", "name": "Dispatch (synthetic)"}}
 
 
@@ -54,8 +56,8 @@ def test_critical_tilt_up_denied():
 
 
 def test_critical_power_plus_5_denied_plus_4_allowed():
-    assert apply(old=40, new=45, criticality="emergency") == ("Deny", ["critical-power-step"])
-    assert apply(old=40, new=44, criticality="emergency") == ("Allow", ["apply-autonomous-within-envelope"])
+    assert apply(old=40, new=41 + STEP, criticality="emergency") == ("Deny", ["critical-power-step"])
+    assert apply(old=40, new=40 + STEP, criticality="emergency") == ("Allow", ["apply-autonomous-within-envelope"])
 
 
 def test_critical_harm_denies_neighbour_fix():
@@ -90,7 +92,8 @@ def test_unknown_cell_in_the_snapshot_does_not_crash_the_harm_check():
 def test_risk_check_lists_criticality():
     net = twin_net()
     p, _ = chosen(net)
-    p["simulation_ref"], p["confidence"] = net.simulate("S4", "tx_power_dbm", 44)["simulation_ref"], 0.8
+    p["proposed_value"] = 40 + STEP
+    p["simulation_ref"], p["confidence"] = net.simulate("S4", "tx_power_dbm", 40 + STEP)["simulation_ref"], 0.8
     c = rc.check(p, {"S4.dropped_nearby": 8.7}, net.snapshot, net.layout, net.config, net.ledger, [p], {},
                  simulate=net.simulate, criticality="emergency", critical_harm=False)
     assert c["criticality"] == "emergency" and c["checks"]["critical_cell_ok"] and c["checks"]["critical_neighbour_ok"]
@@ -169,10 +172,10 @@ def _check(net, cell, parameter, value, criticality):
 
 def test_a_critical_power_step_above_4_db_fails_the_envelope_check():
     net = twin_net()
-    six = _check(net, "S4", "tx_power_dbm", 46, "emergency")
+    six = _check(net, "S4", "tx_power_dbm", 41 + STEP, "emergency")
     assert six["checks"]["within_envelope"] is False and "within_envelope" in six["failed"] and six["recommendation"] == "reject"
-    four = _check(net, "S4", "tx_power_dbm", 44, "emergency")
-    assert four["checks"]["within_envelope"] is True
+    allowed = _check(net, "S4", "tx_power_dbm", 40 + STEP, "emergency")
+    assert allowed["checks"]["within_envelope"] is True
 
 
 def test_an_ordinary_cell_may_step_up_to_8_db_and_down_to_6():

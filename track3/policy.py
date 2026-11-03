@@ -10,6 +10,17 @@ from pathlib import Path
 
 import cedarpy
 
+def critical_power_step(text: str | None = None) -> int:
+    """The largest power step (dB) the policy lets a critical cell gain: the number in rule critical-power-step. One source of
+    truth, so the risk checks, the demo and the tests follow a policy change by themselves."""
+    if text is None:
+        text = (Path(__file__).parent / "policies" / "swarm.cedar").read_text()
+    m = re.search(r'@id\("critical-power-step"\)\s*\nforbid[^;]*?context\.delta > (\d+)', text)
+    if not m:
+        raise ValueError("rule critical-power-step not found in the policy")
+    return int(m.group(1))
+
+
 NO_PERMIT = "no policy permits this call"
 
 

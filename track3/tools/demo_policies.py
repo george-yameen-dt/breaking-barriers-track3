@@ -14,7 +14,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-from policy import PolicySet  # noqa: E402
+from policy import PolicySet, critical_power_step  # noqa: E402
+
+STEP = critical_power_step()  # the critical-cell power step in the policy today
 
 ORCH, COVERAGE, CAPACITY = 'Agent::"orchestrator"', 'Agent::"coverage"', 'Agent::"capacity"'
 S4, S2, S3 = 'Cell::"S4"', 'Cell::"S2"', 'Cell::"S3"'
@@ -45,10 +47,11 @@ SCENARIOS = [
      "apply_cell_configuration", S4, apply_ctx(), None, "Allow", "apply-autonomous-within-envelope"),
     (1, "Any cell to 50 dBm", "Hard ceiling: transmit power is 30-46 dBm, whatever anyone proposes.", "swarm", ORCH,
      "apply_cell_configuration", 'Cell::"S1"', apply_ctx(old=44, new=50), None, "Deny", "power-range"),
-    (1, "Emergency cell S4: +4 dB (the largest step it gets)", "A critical cell may gain power, in steps of at most +4 dB.", "swarm", ORCH,
-     "apply_cell_configuration", S4, apply_ctx(old=40, new=44, criticality="emergency"), None, "Allow", "apply-autonomous-within-envelope"),
-    (1, "Emergency cell S4: +5 dB", "A critical cell may gain power, but in smaller steps (at most +4 dB).", "swarm", ORCH,
-     "apply_cell_configuration", S4, apply_ctx(old=40, new=45, criticality="emergency"), None, "Deny", "critical-power-step"),
+    (1, f"Emergency cell S4: +{STEP} dB (the largest step it gets)", f"A critical cell may gain power, in steps of at most +{STEP} dB.",
+     "swarm", ORCH, "apply_cell_configuration", S4, apply_ctx(old=40, new=40 + STEP, criticality="emergency"), None, "Allow",
+     "apply-autonomous-within-envelope"),
+    (1, f"Emergency cell S4: +{STEP + 1} dB", f"A critical cell may gain power, but in smaller steps (at most +{STEP} dB).", "swarm", ORCH,
+     "apply_cell_configuration", S4, apply_ctx(old=40, new=41 + STEP, criticality="emergency"), None, "Deny", "critical-power-step"),
     (1, "Hospital cell S2: cut power", "Never weaken a hospital, an emergency or a military cell.", "swarm", ORCH,
      "apply_cell_configuration", S2, apply_ctx(old=40, new=38, criticality="hospital"), None, "Deny", "critical-no-power-cut"),
     (1, "A fix that would hurt the hospital next door", "The checks predict harm to a critical neighbour: refused.", "swarm", ORCH,

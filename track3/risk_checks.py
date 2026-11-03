@@ -5,6 +5,7 @@ Triage only chooses among proposals that pass. Cedar (policies/swarm.cedar) stil
 
 import rfmodel as m
 from adapters import criticality as crit
+from policy import critical_power_step
 
 POWER_RANGE = (30, 46)
 TILT_RANGE = (0, 10)
@@ -45,7 +46,7 @@ def critical_harm(net, cell_id: str, parameter: str, value: int, registry: dict 
 
 POWER_STEP = (-6, 8)       # per change, as in policies/swarm.cedar
 TILT_MAX_STEP = 5
-CRITICAL_POWER_STEP_MAX = 4
+CRITICAL_POWER_STEP_MAX = critical_power_step()  # read from policies/swarm.cedar, not repeated here
 
 
 def within_envelope(parameter: str, current: int, value: int, criticality: str = "none") -> bool:
