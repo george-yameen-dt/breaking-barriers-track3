@@ -49,5 +49,16 @@
     "critical_safe": "pass",
     "problem_to_command": "pass",
     "judge": "pass"
+  },
+  "2026-11-03T17-23-track3-dt-P-26110318": {
+    "swarm_deny": "pass",
+    "swarm_autonomous_apply": "fail",
+    "swarm_verify": "fail",
+    "swarm_stabilization": "fail",
+    "swarm_trace": "pass",
+    "critical_safe": "fail",
+    "problem_to_command": "fail",
+    "policy_pin": "pass",
+    "judge": "fail"
   }
 }

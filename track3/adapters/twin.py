@@ -21,6 +21,7 @@ from pathlib import Path
 from adapters.criticality import criticality_of
 from contracts import Refused
 from contracts import sha256_of
+from policy import critical_power_step
 
 SCENARIOS = Path(__file__).resolve().parent.parent / "scenarios" / "twin"
 CELLS = ("S1", "S2", "S3", "S4")
@@ -37,12 +38,14 @@ COMMANDS = {"tx_power_dbm": ("tx_power", "power"), "tilt_deg": ("antenna_tilt", 
 PROMPT_NOTE = """
 
 THIS RUN IS ON THE VIAVI DIGITAL TWIN, not the 7-cell network described above. It has 4 cells, S1 to S4: use these
-ids. Cells whose criticality is hospital, emergency or military serve critical sites: never weaken them. The planned settings are tx_power_dbm 40 and tilt_deg 6. The twin cannot switch
+ids. Cells whose criticality is hospital, emergency or military serve critical sites: never lower their power or tilt them away, and raise their power by at most +{CRITICAL_STEP} dB
+at a time (a larger step is refused, so do not propose it). The planned settings are tx_power_dbm 40 and tilt_deg 6. The twin cannot switch
 a cell on or off remotely: a cell that lost power stays dark, so its neighbours must cover the gap. Allowed changes:
 tx_power_dbm 30-46 dBm, at most +8 or -6 dB at a time; tilt_deg 4-10 degrees, at most 5 degrees at a time.
 rsrp_dbm_p50 and sinr_db_p50 are means; rsrp_dbm_p10 is the weakest tenth of the phones. qos_score is the twin's
 QoS Score, 0-100: the share of the speed its phones asked for that they got (100 = every phone gets its speed). The what-if tools predict
 only the changed cell's phones; the twin measures the neighbours one window after the change."""
+PROMPT_NOTE = PROMPT_NOTE.replace("{CRITICAL_STEP}", str(critical_power_step()))  # the limit the policy enforces
 
 
 def short(name) -> str:
