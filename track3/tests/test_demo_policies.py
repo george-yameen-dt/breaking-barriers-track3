@@ -14,7 +14,7 @@ def test_the_demo_covers_all_three_policy_sets_and_every_forbid_rule_that_matter
     results = demo.run_all()
     assert {r["act"] for r in results} == {1, 2, 3}
     named = {p for r in results for p in r["policies"]}
-    for rule in ("apply-autonomous-within-envelope", "power-range", "critical-power-step-4db", "critical-no-power-cut",
+    for rule in ("apply-autonomous-within-envelope", "power-range", "critical-power-step", "critical-no-power-cut",
                  "critical-neighbour-no-harm", "stabilization-15m", "one-autonomous-change-per-run", "viavi-trace-id-in-reason",
                  "tools-approved-only", "revert-exact", "agents-never-change-governance", "only-risk-owner-approves-governance",
                  "no-change-with-failed-checks", "approval-bound-to-candidate-hash", "governance-is-not-self-amending",

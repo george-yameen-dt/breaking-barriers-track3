@@ -49,7 +49,7 @@ CRITICAL_POWER_STEP_MAX = 4
 
 
 def within_envelope(parameter: str, current: int, value: int, criticality: str = "none") -> bool:
-    """The step Cedar's apply-autonomous-within-envelope allows (and critical-power-step-4db for a critical cell), so a
+    """The step Cedar's apply-autonomous-within-envelope allows (and critical-power-step for a critical cell), so a
     change Cedar would deny is never recommended."""
     delta = value - current
     if parameter == "tx_power_dbm":

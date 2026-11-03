@@ -139,7 +139,7 @@ forbid (principal, action == Action::"apply_cell_configuration", resource)
 when { context.criticality != "none" && context.parameter == "tilt_deg" && context.delta > 0 };
 
 // A critical cell may gain power, but in a smaller step than an ordinary cell.
-@id("critical-power-step-4db")
+@id("critical-power-step")
 forbid (principal, action == Action::"apply_cell_configuration", resource)
 when { context.criticality != "none" && context.parameter == "tx_power_dbm" && context.delta > 4 };
 

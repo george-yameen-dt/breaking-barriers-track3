@@ -54,7 +54,7 @@ def test_critical_tilt_up_denied():
 
 
 def test_critical_power_plus_5_denied_plus_4_allowed():
-    assert apply(old=40, new=45, criticality="emergency") == ("Deny", ["critical-power-step-4db"])
+    assert apply(old=40, new=45, criticality="emergency") == ("Deny", ["critical-power-step"])
     assert apply(old=40, new=44, criticality="emergency") == ("Allow", ["apply-autonomous-within-envelope"])
 
 

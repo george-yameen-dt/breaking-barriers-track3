@@ -19,7 +19,7 @@ HERE = Path(__file__).parent
 GOVERNANCE = HERE / "policies" / "governance.cedar"
 SCHEMA = HERE / "policies" / "swarm.cedarschema"
 # The safety rules every candidate must still contain, as forbid rules with these ids.
-REQUIRED_FORBIDS = ("power-range", "tilt-range", "critical-no-power-cut", "critical-no-tilt-up", "critical-power-step-4db",
+REQUIRED_FORBIDS = ("power-range", "tilt-range", "critical-no-power-cut", "critical-no-tilt-up", "critical-power-step",
                     "critical-neighbour-no-harm", "stabilization-15m", "one-autonomous-change-per-run", "tools-approved-only",
                     "viavi-trace-id-in-reason")
 

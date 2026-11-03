@@ -48,7 +48,7 @@ SCENARIOS = [
     (1, "Emergency cell S4: +4 dB (the largest step it gets)", "A critical cell may gain power, in steps of at most +4 dB.", "swarm", ORCH,
      "apply_cell_configuration", S4, apply_ctx(old=40, new=44, criticality="emergency"), None, "Allow", "apply-autonomous-within-envelope"),
     (1, "Emergency cell S4: +5 dB", "A critical cell may gain power, but in smaller steps (at most +4 dB).", "swarm", ORCH,
-     "apply_cell_configuration", S4, apply_ctx(old=40, new=45, criticality="emergency"), None, "Deny", "critical-power-step-4db"),
+     "apply_cell_configuration", S4, apply_ctx(old=40, new=45, criticality="emergency"), None, "Deny", "critical-power-step"),
     (1, "Hospital cell S2: cut power", "Never weaken a hospital, an emergency or a military cell.", "swarm", ORCH,
      "apply_cell_configuration", S2, apply_ctx(old=40, new=38, criticality="hospital"), None, "Deny", "critical-no-power-cut"),
     (1, "A fix that would hurt the hospital next door", "The checks predict harm to a critical neighbour: refused.", "swarm", ORCH,
