@@ -1,5 +1,5 @@
 {
- "run_id": "2026-11-03T17-23-track3-dt-P-26110318",
+ "run_id": "2026-11-03T17-45-track3-dt-P-26110319",
  "track": "track-3",
  "units": [
   "swarm_deny",
@@ -24,12 +24,12 @@
   "judge": "an independent judge scores the diagnosis and the fix >= 3/5"
  },
  "thresholds": {},
- "problem_id": "P-26110318",
- "trace_id": "037c73897d8f94bc928d311090b037d3",
+ "problem_id": "P-26110319",
+ "trace_id": "69ab354f17e537242c0c8c9bf162c70f",
  "test_set": "scenarios/twin/healthy-power-cut.json",
  "test_set_sha256": "74cf24d0af91ad079d3021aef4d5da81d6388926c8ce3415a65a312559e8ba3d",
  "policies_path": "policies/swarm.cedar",
  "policies_sha256": "391d85a263aff357da3d5ad29b52771a1c9d9aa56e698778ae39b7e09c5344cd",
- "declared_at": "2026-11-03T17:23:53+00:00",
+ "declared_at": "2026-11-03T17:45:53+00:00",
  "declared_by": "track3-trigger Lambda, before the orchestrator starts"
 }

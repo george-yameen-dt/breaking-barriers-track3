@@ -10,11 +10,43 @@
       "bb26-team04-track3-registry"
     ]
   },
-  "run_ids": [],
+  "run_ids": [
+    "2026-11-03T07-47-track3-governance-01",
+    "2026-11-03T17-45-track3-dt-P-26110319",
+    "2026-11-03T18-05-track3-dt-pause-demo-1805"
+  ],
   "live_test_command": "python3 tools/show_record.py --run-id {run_id} --item {item}",
   "live_test_trace_command": "python3 tools/show_record.py --run-id {run_id} --trace",
   "rebuild_command": "python3 tools/rebuild.py",
-  "reported_results": {},
+  "reported_results": {
+    "2026-11-03T07-47-track3-governance-01": {
+      "governance_denied": "PASS",
+      "governance_change": "PASS"
+    },
+    "2026-11-03T17-45-track3-dt-P-26110319": {
+      "swarm_deny": "PASS",
+      "swarm_autonomous_apply": "PASS",
+      "swarm_verify": "PASS",
+      "swarm_stabilization": "PASS",
+      "swarm_trace": "PASS",
+      "critical_safe": "PASS",
+      "problem_to_command": "PASS",
+      "policy_pin": "PASS",
+      "judge": "PASS"
+    },
+    "2026-11-03T18-05-track3-dt-pause-demo-1805": {
+      "swarm_deny": "PASS",
+      "swarm_autonomous_apply": "PASS",
+      "swarm_verify": "PASS",
+      "swarm_stabilization": "PASS",
+      "swarm_trace": "PASS",
+      "critical_safe": "PASS",
+      "problem_to_command": "PASS",
+      "policy_pin": "PASS",
+      "judge": "PASS",
+      "swarm_pause": "PASS"
+    }
+  },
   "notes": "Network changes are autonomous inside the Cedar envelope (agreed with a cohort lead, see GAPS.md); only changes to the agents themselves need a person. Earlier runs (2026-11-01, 2026-11-02) were approval-based on the replay network; failed and incomplete runs are listed on purpose.",
   "scored_units": {
     "swarm_deny": "an out-of-range or critical-cell-weakening change is denied by Cedar",
@@ -25,7 +57,10 @@
     "critical_safe": "after the change no critical cell lost QoS",
     "problem_to_command": "one trace id from the Dynatrace problem to the command sent to Viavi",
     "judge": "an independent judge (Claude) scores the diagnosis and the fix >= 3/5",
-    "swarm_pause": "after capacity's model is withdrawn its call is refused and the run goes on without it"
+    "swarm_pause": "after capacity's model is withdrawn its call is refused and the run goes on without it",
+    "policy_pin": "the policy a runtime loaded is the one a risk owner approved and pinned",
+    "governance_denied": "an agent, an AI engineer, a failed check, a changed file and a self-amendment are each refused by the governance policy",
+    "governance_change": "a risk owner approves one exact candidate by SHA-256; it is activated and pinned"
   },
   "model_artifact_s3_prefix": "none (no model is trained; agents use Bedrock models)",
   "data": "DATA.md",

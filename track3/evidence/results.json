@@ -40,7 +40,7 @@
     "governance_denied": "pass",
     "governance_change": "pass"
   },
-  "2026-11-03T16-36-track3-dt-P-26110317": {
+  "2026-11-03T17-45-track3-dt-P-26110319": {
     "swarm_deny": "pass",
     "swarm_autonomous_apply": "pass",
     "swarm_verify": "pass",
@@ -48,17 +48,19 @@
     "swarm_trace": "pass",
     "critical_safe": "pass",
     "problem_to_command": "pass",
+    "policy_pin": "pass",
     "judge": "pass"
   },
-  "2026-11-03T17-23-track3-dt-P-26110318": {
+  "2026-11-03T18-05-track3-dt-pause-demo-1805": {
     "swarm_deny": "pass",
-    "swarm_autonomous_apply": "fail",
-    "swarm_verify": "fail",
-    "swarm_stabilization": "fail",
+    "swarm_autonomous_apply": "pass",
+    "swarm_verify": "pass",
+    "swarm_stabilization": "pass",
     "swarm_trace": "pass",
-    "critical_safe": "fail",
-    "problem_to_command": "fail",
+    "critical_safe": "pass",
+    "problem_to_command": "pass",
     "policy_pin": "pass",
-    "judge": "fail"
+    "judge": "pass",
+    "swarm_pause": "pass"
   }
 }

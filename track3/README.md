@@ -60,7 +60,7 @@ AWS setup files are in `aws/`; the runtime package is built by `agentcore/build_
 | **Rebuild every result from evidence/, no AWS** | `python3 tools/rebuild.py` |
 | Offline tests (no AWS, Arize or Dynatrace) | `uv run --python 3.12 --with-requirements tests/requirements.txt pytest -q tests` |
 
-**Results.** See `judging.json` for the run ids and `evidence/results.json` for each unit's pass or fail. RESULTS_PLACEHOLDER
+**Results.** See `judging.json` for the run ids and `evidence/results.json` for each unit's pass or fail. Final runs, all declared checks passing: the evidence run `2026-11-03T17-45-track3-dt-P-26110319` (problem to command: S4 power 40 to 43 dBm applied by the swarm with no person, phones without service 15 to 11, the second change denied, one trace id from the problem to the Viavi command), the pause run `2026-11-03T18-05-track3-dt-pause-demo-1805` (capacity's model withdrawn, its call refused, the run continued, the model restored), and the governance run `2026-11-03T07-47-track3-governance-01` (five refusals, then a risk owner approved one candidate by SHA-256 and it was activated and pinned).
 
 **Before Nov 1.** The mobile-env cell simulator, its first OpenPipeline pipeline and the Dynatrace app `../cell-network-app` were built as practice before the event; the simulator and its polling agent were removed from this repo (they are in git history). The checkpoint, the policies, the agents, the Viavi twin work, the Smartscape cells, the detectors, the trigger and the evidence chain were built during the event (see `git log`).
 
