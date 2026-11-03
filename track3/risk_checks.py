@@ -43,6 +43,22 @@ def critical_harm(net, cell_id: str, parameter: str, value: int, registry: dict 
     return False
 
 
+POWER_STEP = (-6, 8)       # per change, as in policies/swarm.cedar
+TILT_MAX_STEP = 5
+CRITICAL_POWER_STEP_MAX = 4
+
+
+def within_envelope(parameter: str, current: int, value: int, criticality: str = "none") -> bool:
+    """The step Cedar's apply-autonomous-within-envelope allows (and critical-power-step-4db for a critical cell), so a
+    change Cedar would deny is never recommended."""
+    delta = value - current
+    if parameter == "tx_power_dbm":
+        return POWER_STEP[0] <= delta <= (CRITICAL_POWER_STEP_MAX if criticality != "none" else POWER_STEP[1])
+    if parameter == "tilt_deg":
+        return abs(delta) <= TILT_MAX_STEP
+    return parameter == "enabled" and value == 1  # switching a cell back on; never off
+
+
 def in_range(parameter: str, value: int) -> bool:
     if parameter == "tx_power_dbm":
         return POWER_RANGE[0] <= value <= POWER_RANGE[1]
@@ -142,6 +158,7 @@ def check(proposal: dict, evidence: dict, snap: dict, layout: dict, config: dict
         "coverage_floor_ok": dropped_delta <= 0,
         "neighbor_impact_ok": not hurt and worst_drop <= MAX_DROP_RISE,
         "improves": improves,
+        "within_envelope": within_envelope(parameter, current, value, criticality),
         "critical_cell_ok": not (criticality != "none" and weakens(parameter, current, value)),
         "critical_neighbour_ok": not critical_harm,
     }
@@ -153,6 +170,7 @@ def check(proposal: dict, evidence: dict, snap: dict, layout: dict, config: dict
                                 ("evidence_matches_snapshot", not checks["evidence_matches_snapshot"]),
                                 ("simulation_ref_valid", not checks["simulation_ref_valid"]),
                                 ("coverage_floor_ok", not checks["coverage_floor_ok"]),
+                                ("within_envelope", not checks["within_envelope"]),
                                 ("critical_cell_ok", not checks["critical_cell_ok"]),
                                 ("critical_neighbour_ok", not checks["critical_neighbour_ok"])) if failed]
     soft = [k for k in ("confidence_ok", "neighbor_impact_ok", "improves") if not checks[k]]

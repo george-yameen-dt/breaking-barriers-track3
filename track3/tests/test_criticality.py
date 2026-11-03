@@ -157,3 +157,38 @@ def test_a_worse_critical_cell_fails_verification_and_is_undone():
     v = next(r for r in cp.records if r["kind"] == "verification")
     assert v["status"] == "VERIFY_FAILED" and v["critical_cells_hurt"] == ["S2"], v
     assert "undone" in outcome, outcome
+
+
+# ---- the risk checks know the Cedar envelope, so an ineligible change is never recommended -----------------------
+def _check(net, cell, parameter, value, criticality):
+    p = {"proposal_id": "PROP-x-1", "agent": "capacity", "cell_id": cell, "parameter": parameter,
+         "current_value": net.config[cell][parameter], "proposed_value": value, "confidence": 0.8}
+    p["simulation_ref"] = (net.simulate(cell, parameter, value) or {}).get("simulation_ref")
+    return rc.check(p, {}, net.snapshot, net.layout, net.config, net.ledger, [p], {}, simulate=net.simulate, criticality=criticality)
+
+
+def test_a_critical_power_step_above_4_db_fails_the_envelope_check():
+    net = twin_net()
+    six = _check(net, "S4", "tx_power_dbm", 46, "emergency")
+    assert six["checks"]["within_envelope"] is False and "within_envelope" in six["failed"] and six["recommendation"] == "reject"
+    four = _check(net, "S4", "tx_power_dbm", 44, "emergency")
+    assert four["checks"]["within_envelope"] is True
+
+
+def test_an_ordinary_cell_may_step_up_to_8_db_and_down_to_6():
+    net = twin_net()
+    assert _check(net, "S1", "tx_power_dbm", 46, "none")["checks"]["within_envelope"] is True   # +2 from 44 is fine
+    net.config["S1"]["tx_power_dbm"] = 36
+    assert _check(net, "S1", "tx_power_dbm", 44, "none")["checks"]["within_envelope"] is True   # +8
+    assert _check(net, "S1", "tx_power_dbm", 45, "none")["recommendation"] == "reject"  # +9: the twin's own limit or ours
+    assert _check(net, "S1", "tx_power_dbm", 29, "none")["recommendation"] == "reject"  # -7, and below 30
+
+
+def test_envelope_check_agrees_with_cedar_on_the_critical_step():
+    import cedarpy
+    for new in range(41, 48):  # 40 is no change at all
+        decision = apply(old=40, new=new, criticality="emergency")
+        net = twin_net()
+        c = _check(net, "S4", "tx_power_dbm", new, "emergency")
+        eligible = c["recommendation"] != "reject" and c["checks"].get("within_envelope", False)
+        assert (decision[0] == "Allow") == eligible or "power-range" in decision[1], (new, decision, c["recommendation"])
