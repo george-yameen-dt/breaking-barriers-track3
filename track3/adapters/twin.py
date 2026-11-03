@@ -14,6 +14,7 @@ is undone.
 """
 
 import json
+import re
 import math
 from pathlib import Path
 
@@ -36,7 +37,7 @@ COMMANDS = {"tx_power_dbm": ("tx_power", "power"), "tilt_deg": ("antenna_tilt", 
 PROMPT_NOTE = """
 
 THIS RUN IS ON THE VIAVI DIGITAL TWIN, not the 7-cell network described above. It has 4 cells, S1 to S4: use these
-ids. No cell serves emergency services. The planned settings are tx_power_dbm 40 and tilt_deg 6. The twin cannot switch
+ids. Cells whose criticality is hospital, emergency or military serve critical sites: never weaken them. The planned settings are tx_power_dbm 40 and tilt_deg 6. The twin cannot switch
 a cell on or off remotely: a cell that lost power stays dark, so its neighbours must cover the gap. Allowed changes:
 tx_power_dbm 30-46 dBm, at most +8 or -6 dB at a time; tilt_deg 4-10 degrees, at most 5 degrees at a time.
 rsrp_dbm_p50 and sinr_db_p50 are means; rsrp_dbm_p10 is the weakest tenth of the phones. qos_score is the twin's
@@ -47,6 +48,16 @@ only the changed cell's phones; the twin measures the neighbours one window afte
 def short(name) -> str:
     """'S4/B3/C1' or 's4' -> 'S4'."""
     return str(name or "").split("/")[0].strip().upper()
+
+
+def discover(window: dict) -> dict:
+    """short cell id -> the Viavi cell name, from the cells the twin reports, in natural order (S2 before S10).
+    A window with no cells falls back to the four planned cells."""
+    found = {}
+    for name in window.get("cells", {}):
+        found.setdefault(short(name), str(name))
+    order = lambda kv: [int(t) if t.isdigit() else t for t in re.split(r"(\d+)", kv[0])]  # noqa: E731
+    return dict(sorted(found.items(), key=order)) or {c: full(c) for c in CELLS}
 
 
 def full(cell_id) -> str:
@@ -70,13 +81,15 @@ def snapshot(window: dict, config: dict, phones_active: float, snapshot_id: str 
     """The KPI snapshot the agents read, from one twin window (the same fields as rfmodel.snapshot)."""
     by = {short(k): v for k, v in window["cells"].items()}
     cells = []
-    for c in CELLS:
+    names = discover(window)
+    for c in config:
         k, cfg = by.get(c, {}), config[c]
         ues = float(k.get("ues") or 0.0)
         on = (k.get("power") if k.get("power") is not None else -999) > -900 and ues > 0
         frac = uncovered_fraction(k.get("rsrp_mean"), k.get("rsrp_p10"))
         cells.append({
             "cell_id": c, "enabled": int(on), "classification": cfg["classification"], "criticality": criticality_of(c),
+            "cell_full": names.get(c, full(c)), "pci": k.get("pci"), "nrcgi": k.get("nrcgi"), "frequency": k.get("frequency"),
             "tx_power_dbm": int(cfg["tx_power_dbm"]), "tilt_deg": int(cfg["tilt_deg"]),
             "maintenance_window": int(cfg["maintenance_window"]),
             "active_users": round(ues, 1),
@@ -88,7 +101,7 @@ def snapshot(window: dict, config: dict, phones_active: float, snapshot_id: str 
             "sinr_db_p50": _r(k.get("sinr_mean")), "sinr_db_p10": _r(k.get("sinr_p10")),
             "rsrq_db_p50": _r(k.get("rsrq_mean")),
             "dropped_nearby": round(ues * frac, 1) if frac is not None else 0.0,
-            "neighbors": [{"cell_id": o, "distance_m": None} for o in CELLS if o != c]})
+            "neighbors": [{"cell_id": o, "distance_m": None} for o in config if o != c]})
     n = window["network"]
     served = float(n.get("coverage_ratio_rsrp_gt_-110") or 0) * float(n.get("ue_samples") or 0) / REPORTS_PER_WINDOW
     snap = {"snapshot_id": snapshot_id,
@@ -109,12 +122,12 @@ def cell(snap: dict, cell_id) -> dict | None:
     return next((c for c in snap["cells"] if c["cell_id"] == short(cell_id)), None)
 
 
-def alarms_from(events: list, now_s: float) -> list:
+def alarms_from(events: list, now_s: float, cells=CELLS) -> list:
     """The twin's own events (sim time t) as alarms: a cell shut down, a raised anomaly, phones losing their radio link."""
     alarms, lost = [], {}
     for e in events:
         kind, c, t = e["event_type"].replace("\\ ", " "), short(e.get("cell")), float(e["t"])
-        if t > now_s or c not in CELLS:
+        if t > now_s or c not in cells:
             continue
         ago = max(0, round((now_s - t) / 60))
         if kind == "turn_off":
@@ -227,10 +240,14 @@ class TwinNetwork:
         self.layout = None
         t0, t1 = self.fault["twin"]["incident_window"]
         twin.advance_to(WINDOW_S)
-        self.phones_active = round(float(twin.window(0, WINDOW_S)["network"]["ue_samples"]) / REPORTS_PER_WINDOW, 1)
+        first = twin.window(0, WINDOW_S)
+        self.names = discover(first)  # the cells come from the data, not from a fixed list
+        self.prompt_note = PROMPT_NOTE.replace("It has 4 cells, S1 to S4: use these\nids.", f"It has {len(self.names)} cells, "
+                                                f"{', '.join(self.names)}: use these ids.")
+        self.phones_active = round(float(first["network"]["ue_samples"]) / REPORTS_PER_WINDOW, 1)
         twin.advance_to(t1)
         self.now, self.version = t1, 0
-        self.config = {c: {**PLANNED, "classification": "production", "maintenance_window": 0} for c in CELLS}
+        self.config = {c: {**PLANNED, "classification": "production", "maintenance_window": 0} for c in self.names}
         self.ledger = []
         for t, c, parameter, value in twin.prior_commands(t1):  # changes made before this run: not this run's agents
             self.ledger.append({"cell_id": c, "parameter": parameter, "old_value": self.config[c][parameter],
@@ -254,7 +271,7 @@ class TwinNetwork:
         self.snapshot = snapshot(w, self.config, self.phones_active, snapshot_id=f"SNAP-{self.run_id}-{self.version}",
                                  config_version=self.version, taken_at=self.taken_at,
                                  scenario=self.fault["twin"]["scenario"])
-        self.alarms = alarms_from(self.twin.events(t1), t1)
+        self.alarms = alarms_from(self.twin.events(t1), t1, self.config)
         for e in self.ledger:
             e["minutes_ago"] = max(0, round((self.now - e["at_s"]) / 60))
         if self.dt:
@@ -263,7 +280,7 @@ class TwinNetwork:
 
     # -- reading, as ReplayNetwork --
     def cell(self, cell_id) -> dict:
-        return cell(self.snapshot, cell_id) or {"error": f"unknown cell {cell_id!r}; the twin's cells are S1 to S4"}
+        return cell(self.snapshot, cell_id) or {"error": f"unknown cell {cell_id!r}; the twin's cells are {', '.join(self.config)}"}
 
     def neighbors(self, cell_id):
         c = self.cell(cell_id)
@@ -294,7 +311,7 @@ class TwinNetwork:
     def simulate(self, cell_id, parameter: str, value) -> dict:
         cid = short(cell_id)
         if cid not in self.config:
-            return {"error": f"unknown cell {cell_id!r}; the twin's cells are S1 to S4"}
+            return {"error": f"unknown cell {cell_id!r}; the twin's cells are {', '.join(self.config)}"}
         if parameter == "enabled":
             return {"error": "the twin cannot switch a cell on or off remotely; a dark cell's neighbours must cover the gap"}
         if parameter not in COMMANDS:
@@ -346,7 +363,7 @@ class TwinNetwork:
     def simulate_delta(self, cell_id, parameter: str, delta) -> dict:
         cid = short(cell_id)
         if cid not in self.config:
-            return {"error": f"unknown cell {cell_id!r}; the twin's cells are S1 to S4"}
+            return {"error": f"unknown cell {cell_id!r}; the twin's cells are {', '.join(self.config)}"}
         try:
             delta = int(round(float(delta)))
         except (TypeError, ValueError):
@@ -375,7 +392,7 @@ class TwinNetwork:
                         "reason_has_trace_id": bool(self.cp is not None and self.cp.trace_id in reason)})
         except Refused as e:
             return {"accepted": False, "error": f"refused by Cedar: {e}"}
-        reply = self.twin.command(self.now, command_type, {"cell": full(cid), key: int(value)}, reason)
+        reply = self.twin.command(self.now, command_type, {"cell": self.names.get(cid, full(cid)), key: int(value)}, reason)
         if self.dt:
             self.dt.change(cell=cid, parameter=parameter, old_value=self.config[cid][parameter], new_value=int(value),
                            accepted=bool(isinstance(reply, dict) and reply.get("accepted")), reason=reason)

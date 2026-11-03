@@ -432,3 +432,68 @@ if __name__ == "__main__":
             print(f"FAIL  {name}  ({Path(where.filename).name}:{where.lineno})\n      {type(e).__name__}: {e}")
     print(f"\n{len(tests) - failed} passed, {failed} failed, {len(tests)} total")
     sys.exit(1 if failed else 0)
+
+
+# ---- Task 4: real Viavi cell names, cells discovered from the data ---------------------------------
+def window_with(names: list, pci: bool = False) -> dict:
+    """The saved run's first window, with its S4 reading copied to every name in `names`."""
+    w = copy.deepcopy(twin_net().twin.window(0, 60))
+    base = next(iter(w["cells"].values()))
+    w["cells"] = {n: {**base, **({"pci": 7.0, "nrcgi": 4241000000000042.0, "frequency": 1800.0} if pci else {})} for n in names}
+    return w
+
+
+def config_for(ids) -> dict:
+    from adapters.twin import PLANNED
+    return {c: {**PLANNED, "classification": "production", "maintenance_window": 0} for c in ids}
+
+
+def test_cells_discovered_from_window():
+    from adapters.twin import discover
+    names = [f"S{i}/B3/C1" for i in range(1, 9)]
+    found = discover(window_with(names))
+    assert list(found) == [f"S{i}" for i in range(1, 9)] and found["S8"] == "S8/B3/C1"
+    snap = twin_snapshot(window_with(names), config_for(found), 39.0)
+    assert [c["cell_id"] for c in snap["cells"]] == list(found) and len(snap["cells"][0]["neighbors"]) == 7
+
+
+def test_cell_record_has_full_name_and_site():
+    snap = twin_snapshot(window_with(["S2/B3/C1", "S4/B7/C2"], pci=True), config_for(["S2", "S4"]), 10.0)
+    rec = next(r for r in twin_dt.snapshot_records(snap, "run-1", "a" * 32, "recorded") if r.get("twin.cell") == "S4")
+    assert (rec["twin.cell_full"], rec["twin.site"], rec["twin.band"]) == ("S4/B7/C2", "S4", "B7")
+    assert (rec["twin.pci"], rec["twin.frequency"], rec["twin.criticality"]) == (7.0, 1800.0, "emergency")
+    assert rec["twin.nrcgi"] == "4241000000000042"
+
+
+def test_old_fields_unchanged():
+    records = twin_dt.snapshot_records(twin_net().snapshot, "run-1", "a" * 32, "recorded")
+    cell = next(r for r in records if r.get("twin.cell") == "S4")
+    for key in ("twin.cell", "twin.cell_name", "twin.state", "twin.tx_power_dbm", "twin.tilt_deg",
+                "twin.neighbor_1", "twin.neighbor_2", "twin.neighbor_3", "twin.load_pct"):
+        assert key in cell, key
+    assert cell["twin.cell_full"] == "S4/B3/C1"
+
+
+def test_no_record_says_a_person_approves():
+    snap = twin_net().snapshot
+    text = json.dumps(twin_dt.snapshot_records(snap, "run-1", "a" * 32, "recorded"))
+    assert "person approves" not in text
+
+
+def test_record_has_wall_time(tmp_path):
+    from datetime import datetime, timedelta, timezone
+    dt = twin_dt.DynatraceLogs("dry-run", "run-1", "a" * 32, dry_file=tmp_path / "dry.jsonl", heartbeat=False)
+    dt.snapshot(twin_net().snapshot, "recorded")
+    rows = [json.loads(line) for line in (tmp_path / "dry.jsonl").read_text().splitlines()]
+    assert rows and all("twin.wall_time" in r for r in rows)
+    when = datetime.fromisoformat(rows[0]["twin.wall_time"])
+    assert abs(datetime.now(timezone.utc) - when) < timedelta(seconds=30)
+
+
+def test_unknown_cell_name_does_not_crash():
+    from adapters.twin import discover
+    found = discover(window_with(["S1/B3/C1", "weird name"]))
+    assert set(found) == {"S1", "WEIRD NAME"}
+    snap = twin_snapshot(window_with(["S1/B3/C1", "weird name"]), config_for(found), 5.0)
+    records = twin_dt.snapshot_records(snap, "run-1", "a" * 32, "recorded")
+    assert any(r.get("twin.cell_full") == "weird name" and r["twin.criticality"] == "none" for r in records)

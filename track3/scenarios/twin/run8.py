@@ -23,7 +23,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(HERE))
-from adapters.twin import CELLS, PLANNED, REPORTS_PER_WINDOW, WINDOW_S, short, snapshot  # noqa: E402
+from adapters.twin import PLANNED, REPORTS_PER_WINDOW, WINDOW_S, discover, short, snapshot  # noqa: E402
 from adapters.twin_dt import NETWORK, NETWORK_NAME, SERVICE, DynatraceLogs  # noqa: E402
 from adapters.twin_link import LocalLink, TwinLink  # noqa: E402
 
@@ -46,7 +46,7 @@ def main() -> None:
     out = HERE / "dev-runs" / run_id
     out.mkdir(parents=True, exist_ok=True)
     dt = DynatraceLogs(a.dt, run_id, trace_id, dry_file=out / "dynatrace-dry-run.jsonl", heartbeat=False)
-    config = {c: {**PLANNED, "classification": "production", "maintenance_window": 0} for c in CELLS}
+    config = None  # built from the first window: the cells come from the data
     link = LocalLink() if a.link == "local" else TwinLink()
     slot = link.run({"op": "slot"})
     if not slot["free"]:  # someone else's run: leave it alone (never force, never stop it)
@@ -64,6 +64,7 @@ def main() -> None:
             first, w = r["first"], r["window"]
             phones_active = phones_active or round(float(w["network"]["ue_samples"]) / REPORTS_PER_WINDOW, 1)
             phase = "healthy" if m * WINDOW_S <= FAULT_AT else "fault"
+            config = config or {c: {**PLANNED, "classification": "production", "maintenance_window": 0} for c in discover(w)}
             snap = snapshot(w, config, phones_active, scenario=a.scenario)
             extra = {"twin.phase": phase, "twin.minute": m, "twin.test_id": test_id, "twin.scenario": a.scenario,
                      "twin.config_version": a.config_version}

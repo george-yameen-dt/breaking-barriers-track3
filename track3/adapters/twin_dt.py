@@ -37,6 +37,17 @@ def _token() -> str:
     raise SystemExit(f"DT_PLATFORM_TOKEN is not in the environment or {ENV_FILE}")
 
 
+def _viavi_fields(c: dict) -> dict:
+    """The cell's Viavi identity (full name, site, band, PCI, NrCgi, frequency) and its criticality."""
+    full_name = str(c.get("cell_full") or c["cell_id"])
+    parts = full_name.split("/")
+    nrcgi = c.get("nrcgi")
+    return {"twin.cell_full": full_name, "twin.site": parts[0], "twin.band": parts[1] if len(parts) > 1 else None,
+            "twin.pci": c.get("pci"), "twin.frequency": c.get("frequency"),
+            "twin.nrcgi": str(int(nrcgi)) if isinstance(nrcgi, (int, float)) else None,
+            "twin.criticality": c.get("criticality", "none")}
+
+
 def snapshot_records(snap: dict, run_id: str, trace_id: str, source: str) -> list:
     """One network record and one record per cell (a tower in Smartscape), with the alert flags."""
     n = snap["network"]
@@ -58,6 +69,7 @@ def snapshot_records(snap: dict, run_id: str, trace_id: str, source: str) -> lis
     for c in snap["cells"]:
         rec = {**base, "twin.kind": "cell", "loglevel": "INFO" if c["enabled"] else "WARN", "twin.cell": c["cell_id"],
                "twin.cell_name": f"Tower {c['cell_id']}", "twin.state": "on" if c["enabled"] else "DARK",
+               **_viavi_fields(c),
                "content": f"cell {c['cell_id']}: {'on' if c['enabled'] else 'DARK'}, {c['tx_power_dbm']} dBm, "
                           f"tilt {c['tilt_deg']}, {c['active_users']} phones, {c['dropped_nearby']} without service, "
                           f"QoS {c.get('qos_score')}, load {c.get('prb_utilization_pct')}%",
@@ -67,8 +79,9 @@ def snapshot_records(snap: dict, run_id: str, trace_id: str, source: str) -> lis
                "twin.qos_score": c.get("qos_score"), "twin.load_pct": c.get("prb_utilization_pct"),
                "twin.throughput_mbps": c.get("throughput_mbps"), "twin.rsrq_db": c.get("rsrq_db_p50"),
                # the other towers (the scenario gives every cell all others as neighbours): Smartscape draws the mesh
+               # (the pipeline reads three neighbour fields; at more than four cells the first three are sent)
                **{f"twin.neighbor_{i}": o["cell_id"] for i, o in enumerate(
-                   (o for o in snap["cells"] if o["cell_id"] != c["cell_id"]), 1)}}
+                   (o for o in snap["cells"] if o["cell_id"] != c["cell_id"]), 1) if i <= 3}}
         if alert and not c["enabled"]:
             others = ", ".join(f"{o['cell_id']} QoS {o.get('qos_score')} load {o.get('prb_utilization_pct')}% "
                                f"({o['active_users']} phones)" for o in snap["cells"] if o["enabled"])
@@ -78,8 +91,8 @@ def snapshot_records(snap: dict, run_id: str, trace_id: str, source: str) -> lis
                         "twin.towers_still_on": others,
                         "twin.what_next": f"{c['cell_id']} cannot be switched back on remotely: send a crew to restore "
                                           f"power, and let the neighbours cover the gap (more power or less tilt on "
-                                          f"{worst['cell_id']}, watching its load). The agents propose the change; "
-                                          f"a person approves it."})
+                                          f"{worst['cell_id']}, watching its load). The agents choose and apply the change "
+                                          f"inside Cedar's envelope."})
         records.append(rec)
     return [{k: v for k, v in r.items() if v is not None} for r in records]
 
@@ -119,7 +132,7 @@ class DynatraceLogs:
 
     def _ship(self, records: list, seconds_ago: float = 0) -> None:
         stamp = (datetime.now(timezone.utc) - timedelta(seconds=seconds_ago)).isoformat(timespec="milliseconds")
-        records = [{"timestamp": stamp, **r} for r in records]
+        records = [{"timestamp": stamp, "twin.wall_time": stamp, **r} for r in records]
         with self._lock:
             if self.mode == "dry-run":
                 self.dry_file.parent.mkdir(parents=True, exist_ok=True)

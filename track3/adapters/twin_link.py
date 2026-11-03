@@ -75,10 +75,11 @@ def window(test_id, first, t0, t1):
     cells = {}
     for r in query(test_id, 'SELECT mean("RRC.ConnMean") AS ues, mean("DRB.UEThpDl") AS thp_dl, '
                             'mean("RRU.PrbUsedDl") AS prb_dl, mean("RRU.PrbTotDl") AS prb_pct, '
+                            'last("Viavi.NrPci") AS pci, last("Viavi.Frequency") AS frequency, last("Viavi.NrCgi") AS nrcgi, '
                             'mean("Viavi.QoS.Score") AS qos, last("Viavi.Radio.power") AS power, '
                             f'mean("PEE.AvgPower") AS energy_w FROM "CellReports" {where} GROUP BY "Viavi.Cell.Name"'):
         cells[tag(r, "Viavi.Cell.Name")] = {k: f(r.get(k)) for k in
-                                            ("ues", "thp_dl", "prb_dl", "prb_pct", "qos", "power", "energy_w")}
+                                            ("ues", "thp_dl", "prb_dl", "prb_pct", "qos", "power", "energy_w", "pci", "frequency", "nrcgi")}
     for r in query(test_id, 'SELECT mean("Viavi.UE.Rsrp") AS rsrp_mean, percentile("Viavi.UE.Rsrp", 10) AS rsrp_p10, '
                             'mean("Viavi.UE.RsSinr") AS sinr_mean, percentile("Viavi.UE.RsSinr", 10) AS sinr_p10, '
                             'mean("Viavi.UE.Rsrq") AS rsrq_mean, '
