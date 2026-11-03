@@ -39,15 +39,29 @@ never Dynatrace or the agents:
 ```
 ssh hackathon-ec2 ~/team04-track3/viavi-run                     # team04-track3-4cell-powercut, config "baseline"
 ssh hackathon-ec2 ~/team04-track3/viavi-run --scenario team04-track3-live --config-version <v>
+ssh hackathon-ec2 ~/team04-track3/viavi-run --scenario team04-track3-live --healthy-minutes 5 --fault-minutes 20   # the demo
 ```
 
 Teammates without the ssh alias: `aws ssm start-session --target i-06e27097bc0c6bef8 --region us-east-2`, then
 `sudo -iu ec2-user ~/team04-track3/viavi-run`. Add `--dt dry-run` to send nothing (records go to `dev-runs/<run_id>/`).
 
+`--healthy-minutes H --fault-minutes F` moves the scenario's fault to H minutes and runs H + F minutes, so the swarm's change reaches the cells and shows in Dynatrace while the fault is still on. The run starts from the saved scenario's config with only the fault delay and duration changed (validated first); the saved scenario is not changed.
+
 What it does: checks the run slot (`simulation_status current`) and refuses if another run is going (never `force`, never
 stops it); starts the scenario offline and paced; each wall-clock minute advances 60 s and sends one network record
 and one per tower (`service.name viavi-twin`, no heartbeat), plus new twin events; stops the run at minute 8, also on
 error or Ctrl-C. Every record carries `trace_id`, `twin.run_id`, `twin.test_id` and `twin.config_version`.
+
+Every value is the live run's own; nothing is pinned to the plan (40 dBm, tilt 6, fault at 180 s):
+
+| Field | From the run |
+|---|---|
+| `twin.tx_power_dbm` | the cell's measured `Viavi.Radio.power`; left out when the cell has no power |
+| `twin.tilt_deg` | the twin does not report tilt: the scenario's starting `Tilt` (read from the RSG at start), changed by the run's `O1_update` events (`digitalTilt`, tenths of a degree) |
+| `twin.phones_active`, `twin.phones_served`, `twin.phones_without_service`, `twin.phones_reporting` | phones counted one by one (`Viavi.UE.id`): every phone seen in the run so far (a phone that loses service stops reporting), those whose mean RSRP this minute is above -110 dBm, the rest, and those reporting this minute |
+| `twin.dropped_nearby` (cell) | that cell's reporting phones with mean RSRP at or below -110 dBm |
+| `twin.phase` | `fault` once the twin raised an anomaly or shut a cell down (its own events) |
+| `twin.o1_updates` | O1 updates (an agent's `tx_power`/`antenna_tilt`) so far in the run: the minutes after a change show it |
 
 ### Reset to the demo baseline
 ```

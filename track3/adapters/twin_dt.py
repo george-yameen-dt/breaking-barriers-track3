@@ -61,7 +61,8 @@ def snapshot_records(snap: dict, run_id: str, trace_id: str, source: str) -> lis
                 "content": f"{n['phones_dropped']} of {n['phones_active']} phones without service; dark cells: "
                            f"{', '.join(dark) or 'none'}; most of them near {worst['cell_id']}",
                 "twin.phones_without_service": n["phones_dropped"], "twin.phones_active": n["phones_active"],
-                "twin.phones_served": n["phones_served"], "twin.median_rate_mbps": n["median_rate_mbps"],
+                "twin.phones_served": n["phones_served"], "twin.phones_reporting": n.get("phones_reporting"),
+                "twin.median_rate_mbps": n["median_rate_mbps"],
                 "twin.qos_score": n.get("qos_score"), "twin.coverage_pct": n.get("coverage_pct"),
                 "twin.worst_cell": worst["cell_id"], "twin.dark_cells": ",".join(dark) or "none"}]
     if alert and not dark:
@@ -70,7 +71,8 @@ def snapshot_records(snap: dict, run_id: str, trace_id: str, source: str) -> lis
         rec = {**base, "twin.kind": "cell", "loglevel": "INFO" if c["enabled"] else "WARN", "twin.cell": c["cell_id"],
                "twin.cell_name": f"Tower {c['cell_id']}", "twin.state": "on" if c["enabled"] else "DARK",
                **_viavi_fields(c),
-               "content": f"cell {c['cell_id']}: {'on' if c['enabled'] else 'DARK'}, {c['tx_power_dbm']} dBm, "
+               "content": f"cell {c['cell_id']}: {'on' if c['enabled'] else 'DARK'}, "
+                          f"{'no' if c['tx_power_dbm'] is None else c['tx_power_dbm']} dBm, "
                           f"tilt {c['tilt_deg']}, {c['active_users']} phones, {c['dropped_nearby']} without service, "
                           f"QoS {c.get('qos_score')}, load {c.get('prb_utilization_pct')}%",
                "twin.enabled": c["enabled"], "twin.tx_power_dbm": c["tx_power_dbm"], "twin.tilt_deg": c["tilt_deg"],
