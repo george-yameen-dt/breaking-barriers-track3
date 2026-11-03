@@ -147,6 +147,13 @@ def do(op):
                     reason=op["reason"])
     if op["op"] == "stop":
         return call("simulation_stop", test_id=op["test_id"])
+    if op["op"] == "scenario_get":
+        return call("scenario_get", name=op["name"])["config"]
+    if op["op"] == "scenario_put":  # the operator's reset (scenarios/twin/reset.py), never an agent's: validate, then save
+        check = call("scenario_validate", config=op["config"])
+        if not check.get("valid"):
+            raise ValueError(f"invalid: {str(check)[:400]}")
+        return call("scenario_save", name=op["name"], config=op["config"], overwrite=True)
     raise ValueError(f"unknown op {op['op']!r}")
 '''
 
