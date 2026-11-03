@@ -25,10 +25,13 @@ def lam(monkeypatch):
     spec.loader.exec_module(mod)
     store = {}
 
-    def put_item(TableName, Item, ConditionExpression=None):
+    def put_item(TableName, Item, ConditionExpression=None, ExpressionAttributeValues=None):
         key = (Item["run_id"]["S"], Item["seq"]["S"])
-        if key in store:
-            raise ClientError({"Error": {"Code": "ConditionalCheckFailedException", "Message": "x"}}, "PutItem")
+        old = store.get(key)
+        if old is not None:
+            expired = ExpressionAttributeValues and int(old["claimed_epoch"]["N"]) < int(ExpressionAttributeValues[":cutoff"]["N"])
+            if not expired:
+                raise ClientError({"Error": {"Code": "ConditionalCheckFailedException", "Message": "x"}}, "PutItem")
         store[key] = Item
 
     def get_item(TableName, Key, ConsistentRead=True):
@@ -61,12 +64,6 @@ def test_duplicate_problem_starts_one_run(lam):
     one, two = json.loads(first["body"]), json.loads(second["body"])
     assert one["run_id"] == two["run_id"] and one["trace_id"] == two["trace_id"] and two["duplicate"] is True
     assert lam.lam.invoke.call_count == 1
-
-
-def test_a_different_problem_starts_its_own_run(lam):
-    lam.handler(event("P-1"), CTX)
-    lam.handler(event("P-2"), CTX)
-    assert lam.lam.invoke.call_count == 2
 
 
 def test_wrong_token_is_refused(lam):
@@ -124,3 +121,20 @@ def test_the_declared_units_exist_and_the_inputs_hash(lam):
     assert set(lam.UNITS) <= set(check.UNITS)
     doc = lam.declared_doc({"run_id": "r", "problem_id": "P-1", "trace_id": "a" * 32})
     assert doc["policies_sha256"] and set(doc["target"]) >= set(lam.UNITS) - {"judge"}
+
+
+# ---- one run per incident window: a second problem for the same network within 15 minutes is the same incident ----------------
+def test_a_second_problem_within_15_minutes_is_the_same_incident(lam):
+    first = lam.handler(event("P-1"), CTX)
+    second = lam.handler(event("P-2"), CTX)
+    assert first["statusCode"] == 202 and second["statusCode"] == 200
+    assert json.loads(second["body"])["run_id"] == json.loads(first["body"])["run_id"] and json.loads(second["body"])["duplicate"] is True
+    assert lam.lam.invoke.call_count == 1
+
+
+def test_after_15_minutes_a_new_incident_starts(lam, monkeypatch):
+    lam.handler(event("P-1"), CTX)
+    real = lam.time.time
+    monkeypatch.setattr(lam.time, "time", lambda: real() + 16 * 60)
+    out = lam.handler(event("P-3"), CTX)
+    assert out["statusCode"] == 202 and lam.lam.invoke.call_count == 2

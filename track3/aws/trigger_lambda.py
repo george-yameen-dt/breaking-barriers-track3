@@ -17,6 +17,7 @@ import hashlib
 import json
 import os
 import re
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -76,19 +77,39 @@ def trace_id_for(problem_id: str) -> str:
     return hashlib.sha256(str(problem_id).encode()).hexdigest()[:32]
 
 
-def claim(problem_id: str, run_id: str, trace_id: str) -> dict | None:
-    """None when this call claimed the problem; otherwise the run that already holds it."""
-    key = {"run_id": {"S": f"problem#{problem_id}"}, "seq": {"S": "0000"}}
+INCIDENT_WINDOW_S = 15 * 60  # a second problem for the same network inside this window is the same incident
+
+
+def _put(key: dict, run_id: str, trace_id: str, condition: str, values: dict | None = None) -> bool:
+    """True when the item was written; False when the condition says someone holds it."""
+    item = {**key, "claimed_run_id": {"S": run_id}, "trace_id": {"S": trace_id}, "claimed_epoch": {"N": str(int(time.time()))},
+            "claimed_at": {"S": datetime.now(timezone.utc).isoformat(timespec="seconds")}}
     try:
-        ddb.put_item(TableName=RECORDS_TABLE, Item={**key, "claimed_run_id": {"S": run_id}, "trace_id": {"S": trace_id},
-                                                    "claimed_at": {"S": datetime.now(timezone.utc).isoformat(timespec="seconds")}},
-                     ConditionExpression="attribute_not_exists(run_id)")
-        return None
+        ddb.put_item(TableName=RECORDS_TABLE, Item=item, ConditionExpression=condition,
+                     **({"ExpressionAttributeValues": values} if values else {}))
+        return True
     except ClientError as e:
         if e.response["Error"]["Code"] != "ConditionalCheckFailedException":
             raise
+        return False
+
+
+def _held(key: dict) -> dict:
     item = ddb.get_item(TableName=RECORDS_TABLE, Key=key, ConsistentRead=True)["Item"]
     return {"run_id": item["claimed_run_id"]["S"], "trace_id": item["trace_id"]["S"]}
+
+
+def claim(problem_id: str, run_id: str, trace_id: str) -> dict | None:
+    """None when this call claimed the problem and the incident; otherwise the run that already holds it. One run per
+    problem id, and one per incident window: a second problem for the network within 15 minutes starts nothing."""
+    problem = {"run_id": {"S": f"problem#{problem_id}"}, "seq": {"S": "0000"}}
+    if not _put(problem, run_id, trace_id, "attribute_not_exists(run_id)"):
+        return _held(problem)
+    incident = {"run_id": {"S": "incident#viavi"}, "seq": {"S": "0000"}}
+    if not _put(incident, run_id, trace_id, "attribute_not_exists(run_id) OR claimed_epoch < :cutoff",
+                {":cutoff": {"N": str(int(time.time()) - INCIDENT_WINDOW_S)}}):
+        return _held(incident)
+    return None
 
 
 def _file(rel: str) -> Path:
