@@ -1,7 +1,7 @@
 """One Cedar policy set, loaded from a file and evaluated the same way for every kind of change.
 
-The checkpoint holds several: the network set (policies/track3.cedar, frozen: its hash is in every
-declared run) and the promotion set (policies/promotion.cedar, for changes to the agents themselves).
+The base checkpoint holds the promotion set (policies/promotion.cedar, for changes to the agents themselves).
+The swarm decides network changes with policies/swarm.cedar (agents/governance.py).
 """
 
 import hashlib

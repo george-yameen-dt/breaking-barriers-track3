@@ -4,7 +4,7 @@
 /agentbuilder/
 /aws/
 
-# Rebuilt by track3/agentcore/build.sh and track3/aws (zip of the Lambda)
+# Rebuilt by track3/agentcore/build_swarm.sh and track3/aws (zip of the Lambda)
 track3/agentcore/build/
 track3/agentcore/*.zip
 track3/aws/*.zip

@@ -47,6 +47,10 @@
 - **Run start:** the operator's laptop reads Dynatrace and starts the run. A Dynatrace Workflow that starts it when the problem opens is designed, not built.
 - **Dynatrace traces:** we have no Dynatrace token with `openpipeline:traces:ingest` scope. Dynatrace shows the chain as log records keyed by `trace_id`. Spans go to Arize only.
 - **Approver role (promotion):** the whole team signs in with one role (`bb26-Participant`), so the approver's role (`ai_engineer`, `network_operator`) is declared on the command line and recorded with the login on each approval. The promotion policy enforces it; IAM does not.
-- **Promoted prompts on AgentCore:** promotion flips the registry, but the runtime `track3_agents` (version 1) still runs the diagnose prompt built into its code. Agents reading the active prompt at run start needs a rebuild and runtime version 2 (planned).
+- **Promoted prompts on AgentCore:** promotion flips the registry, but the runtime `track3_agents` (version 1) still runs the diagnose prompt built into its code. Agents reading the active prompt at run start needs a rebuild and runtime version 2 (planned). (That runtime was deleted on 2026-11-02; see the next section.)
 - **Outcome score, experiment, Track 1 export:** `outcome.py` scores a recovery from Dynatrace data and is tested offline; the `verify`, `experiment` and `export` commands are not built yet. No Track 1 model is trained: the export is the hand-off.
 
+## Removed on 2026-11-02: the first two-agent version
+- Deleted: AgentCore Runtime `track3_agents`, `policies/track3.cedar`, `agentcore/build.sh`, `aws/runtime-id.txt`, the commands `run`, `pause`, `compare` and `adversarial` in `track3.py` (and `--local`), the incident and pause modes of `agentcore/main.py`, and the eleven declared runs from `2026-11-01T14-40` to `2026-11-02T05-05` with their records and results. The swarm replaces it.
+- The dated entries above describe that version and stay as written. They name runs that are no longer in `evidence/`; git history holds them. Copies of those records are still in S3 `evidence/`, DynamoDB `bb26-team04-track3-records` and CloudWatch `/bb26/team04/track3`; we did not delete them.
+- `judging.json` lists no runs now. Put the swarm runs you report in `run_ids` and `reported_results` before submitting.
