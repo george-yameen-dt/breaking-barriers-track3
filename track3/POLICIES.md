@@ -48,7 +48,7 @@ Cedar's rule of thumb: nothing is allowed unless a `permit` says so, and any mat
 | `tilt-range` | Tilt is never outside 4-10 degrees. |
 | `critical-no-power-cut` | **Critical cells** (a hospital, an emergency dispatch centre, military) never lose power. |
 | `critical-no-tilt-up` | ...and are never tilted away. |
-| `critical-power-step` | A critical cell may gain power, but in smaller steps: at most +4 dB. |
+| `critical-power-step` | A critical cell may gain power, but in smaller steps: at most +3 dB (tightened from +4 by the first governed change). |
 | `critical-neighbour-no-harm` | Never make a change the checks predict will hurt a critical cell somewhere else. |
 | `stabilization-15m` | Never change the same cell twice within 15 minutes: let the network settle. |
 | `one-autonomous-change-per-run` | Never more than one autonomous change per incident: a limit on the blast radius. An undo is not a change and stays allowed. |

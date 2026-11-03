@@ -138,10 +138,10 @@ when { context.criticality != "none" && context.parameter == "tx_power_dbm" && c
 forbid (principal, action == Action::"apply_cell_configuration", resource)
 when { context.criticality != "none" && context.parameter == "tilt_deg" && context.delta > 0 };
 
-// A critical cell may gain power, but in a smaller step than an ordinary cell.
+// A critical cell may gain power, but in a smaller step than an ordinary cell: at most +3 dB (tightened from +4 dB).
 @id("critical-power-step")
 forbid (principal, action == Action::"apply_cell_configuration", resource)
-when { context.criticality != "none" && context.parameter == "tx_power_dbm" && context.delta > 4 };
+when { context.criticality != "none" && context.parameter == "tx_power_dbm" && context.delta > 3 };
 
 // Never: a change the checks predict will hurt a critical cell somewhere else in the network.
 @id("critical-neighbour-no-harm")
