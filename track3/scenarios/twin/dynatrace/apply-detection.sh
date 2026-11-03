@@ -2,6 +2,7 @@
 # Davis anomaly detection on the cell metrics (detectors/*.json) and the event correlation rule (correlation-rules.json).
 #   ./apply-detection.sh validate   the API checks every file; nothing is created
 #   ./apply-detection.sh apply      creates what is missing (by title / display name); existing ones are left alone
+#   ./apply-detection.sh rule       replaces the correlation rule with the file's current version (delete, then create)
 #   ./apply-detection.sh undo       deletes them again
 #   ./apply-detection.sh status     what exists now, and the twin's open problems
 # The detector runs as the person who applies it: the actor is read from `dtctl auth whoami`, not stored in the repo.
@@ -36,6 +37,9 @@ case "${1:-validate}" in
     done
     [ -n "$(ids_by "$R" displayName "$(rule_name)")" ] && echo "already there: $(rule_name)" \
       || dt create settings -f correlation-rules.json --schema "$R" --scope environment ;;
+  rule)
+    for id in $(ids_by "$R" displayName "$(rule_name)"); do dt delete settings "$id"; done
+    dt create settings -f correlation-rules.json --schema "$R" --scope environment ;;
   undo)
     for f in detectors/*.json; do for id in $(ids_by "$D" title "$(title "$f")"); do dt delete settings "$id"; done; done
     for id in $(ids_by "$R" displayName "$(rule_name)"); do dt delete settings "$id"; done ;;
@@ -43,5 +47,5 @@ case "${1:-validate}" in
     for f in detectors/*.json; do echo "detector $(title "$f"): $(ids_by "$D" title "$(title "$f")" | head -c 30)"; done
     echo "rule $(rule_name): $(ids_by "$R" displayName "$(rule_name)" | head -c 30)"
     dt query 'fetch dt.davis.problems, from:now()-2h | filter matchesPhrase(event.name, "Viavi twin") | fields display_id, event.name, event.status, event.start' --no-agent --plain ;;
-  *) echo "usage: $0 validate|apply|undo|status"; exit 2 ;;
+  *) echo "usage: $0 validate|apply|rule|undo|status"; exit 2 ;;
 esac

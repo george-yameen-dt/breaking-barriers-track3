@@ -6,5 +6,11 @@
     "twin.network_name"
   ],
   "timeWindow": "5m",
-  "correlationNamespace": "viavi-twin"
+  "correlationNamespace": "viavi-twin",
+  "causalityRules": [
+    {
+      "causeEventMatcher": "event.name == \"Cell dark on the Viavi twin\"",
+      "effectEventMatcher": "dt.alert_group == \"viavi-twin\" and event.name != \"Cell dark on the Viavi twin\""
+    }
+  ]
 }

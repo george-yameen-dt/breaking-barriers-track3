@@ -69,3 +69,11 @@ def test_correlation_rule_groups_by_network():
     assert rule["displayName"] == "Viavi cell anomalies per network" and rule["enabled"] is True
     assert rule["groupingFields"] == ["twin.network_name"] and rule["timeWindow"] == "5m"
     assert "viavi-twin" in rule["matchingCondition"]
+
+
+def test_a_dark_cell_is_the_cause_of_the_other_events():
+    """Dynatrace named an S4 symptom as the root cause of the S3 power failure; the rule says what causes what."""
+    rule = json.loads((DT / "correlation-rules.json").read_text())
+    (c,) = rule["causalityRules"]
+    assert "Cell dark on the Viavi twin" in c["causeEventMatcher"]
+    assert "viavi-twin" in c["effectEventMatcher"] and "!= " in c["effectEventMatcher"], "the dark event is not its own effect"

@@ -1,0 +1,41 @@
+{
+ "run_id": "2026-11-03T11-59-track3-dt-P-26110311",
+ "track": "track-3",
+ "units": [
+  "swarm_deny",
+  "swarm_autonomous_apply",
+  "swarm_verify",
+  "swarm_stabilization",
+  "swarm_trace",
+  "critical_safe",
+  "problem_to_command",
+  "detect",
+  "one_problem",
+  "judge"
+ ],
+ "target": {
+  "swarm_deny": "a change outside 30-46 dBm / 4-10 degrees is denied by Cedar",
+  "swarm_autonomous_apply": "Cedar allows the change inside the envelope and the network accepts it, with no person in between",
+  "swarm_verify": "the next window is measured; a change that made things worse is undone",
+  "swarm_stabilization": "a second change to the same cell right after is denied",
+  "swarm_trace": "one trace id and contiguous records across the five AgentCore runtimes",
+  "critical_safe": "after the change no critical cell (hospital, emergency, military) lost QoS",
+  "problem_to_command": "one trace id from the Dynatrace problem to the command sent to Viavi",
+  "detect": "Dynatrace opens a problem within 300 s of the fault's first record",
+  "one_problem": "the fault opens exactly one correlated problem, not one per cell",
+  "judge": "an independent judge scores the diagnosis and the fix >= 3/5"
+ },
+ "thresholds": {
+  "detect": {
+   "max_seconds": 300
+  }
+ },
+ "problem_id": "P-26110311",
+ "trace_id": "420eed9ca3ce6f3dc9e9fe8f1293499a",
+ "test_set": "scenarios/twin/healthy-power-cut.json",
+ "test_set_sha256": "74cf24d0af91ad079d3021aef4d5da81d6388926c8ce3415a65a312559e8ba3d",
+ "policies_path": "policies/swarm.cedar",
+ "policies_sha256": "e7870442c49e9c64eef69e1aea6846f8bb2acdc817e772244e554ccfd310b9e2",
+ "declared_at": "2026-11-03T11:59:57+00:00",
+ "declared_by": "track3-trigger Lambda, before the orchestrator starts"
+}
