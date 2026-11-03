@@ -1,0 +1,18 @@
+{
+  "run_id": "2026-11-03T03-27-track3-setup-01",
+  "track": "track-3",
+  "units": [
+    "registry"
+  ],
+  "target": {
+    "registry": "openai.gpt-oss-120b-1:0 and us.anthropic.claude-haiku-5-5 approved in the model registry"
+  },
+  "test_set_sha256": "f91eba7366d708b153f520626679841fde6f61eccd15d2b395e906159a64a48c",
+  "test_set": "scenarios/incident-v2-cutoff.json",
+  "model_id": "openai.gpt-oss-120b-1:0",
+  "grader": {
+    "rules": "tools/check.py on the decision records",
+    "llm_judge": "us.anthropic.claude-haiku-5-5 (Anthropic family; the agents run on OpenAI gpt-oss)"
+  },
+  "declared_at": "2026-11-03T11:27:21+00:00"
+}

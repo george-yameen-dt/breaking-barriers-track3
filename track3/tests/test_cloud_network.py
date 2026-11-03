@@ -35,3 +35,17 @@ def test_the_remote_agents_carry_the_twin_state(monkeypatch):
     r = cloud.RemoteAgents({"run_id": "r", "trace_id": "t" * 32, "fault": "x", "taken_at": "t", "network": "viavi",
                             "twin_scenario": SCENARIO, "twin_state": {"windows": []}})
     assert r.base["network"] == "viavi" and r.base["twin_state"] == {"windows": []} and r.base["twin_scenario"] == SCENARIO
+
+
+def test_a_refused_attach_is_a_clean_refusal_not_a_crash(monkeypatch):
+    from unittest.mock import MagicMock
+    from contracts import Refused
+
+    def refuse(cp, payload, run_id):
+        raise Refused('Agent::"orchestrator" may not use viavi:simulation_query: tools-approved-only')
+
+    cp = MagicMock()
+    cp.run_id = "r"
+    monkeypatch.setattr(cloud, "network_for", refuse)
+    out = cloud._handle(cp, "swarm", "orchestrator", {"fault": "x", "taken_at": "t"})
+    assert out["refused"] is True and "tools-approved-only" in out["error"]

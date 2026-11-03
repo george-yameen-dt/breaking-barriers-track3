@@ -108,10 +108,10 @@ def network_for(cp, payload: dict, run_id: str):
 
 def _handle(cp, mode: str, role: str, payload: dict) -> dict:
     run_id = cp.run_id
-    net = network_for(cp, payload, run_id)
-    if mode == "swarm" and payload.get("network") == "viavi":  # the workers rebuild this network from what it has read
-        payload = {**payload, "twin_state": net.twin.state()}
     try:
+        net = network_for(cp, payload, run_id)  # inside the try: a refused read of the network is a refusal, not a crash
+        if mode == "swarm" and payload.get("network") == "viavi":  # the workers rebuild this network from what it has read
+            payload = {**payload, "twin_state": net.twin.state()}
         if mode == "specialist":
             if payload.get("ping"):
                 run_agent(cp, role, MODELS[role], 'Reply with JSON only: {"ok": true}', '{"check": "are you available?"}', {},
