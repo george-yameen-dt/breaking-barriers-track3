@@ -224,13 +224,84 @@ class LiveTwin:
         self.link.run({"op": "stop", "test_id": self.test_id})
 
 
+class AttachedTwin:
+    """A run the operator's poller (run8.py) is driving. The agents read it and send commands; they never start,
+    advance or stop it. advance_to waits for the run's own clock; the poller moves it."""
+    source = "live"
+    history = False  # the poller already sends every window to Dynatrace
+
+    def __init__(self, link):
+        self.link = link
+        s = link.run({"op": "attach"})
+        self.test_id, self.first, self.now_s = s["test_id"], float(s["first_timestamp"]), int(s["sim_time"])
+        self.windows, self.event_rows = {}, []
+
+    def advance_to(self, t: int) -> None:
+        if t > self.now_s:
+            self.link.run({"op": "wait_for", "test_id": self.test_id, "to": t, "timeout": 300})
+            self.now_s = t
+
+    def window(self, t0: int, t1: int) -> dict:
+        if (t0, t1) not in self.windows:
+            self.windows[(t0, t1)] = self.link.run({"op": "window", "test_id": self.test_id, "first": self.first, "t0": t0, "t1": t1})
+        return self.windows[(t0, t1)]
+
+    def events(self, until_s: float) -> list:
+        rows = self.link.run({"op": "events", "test_id": self.test_id, "first": self.first, "until": until_s})
+        self.event_rows = [{**e, "t": int(e["time"]) / 1000 - self.first} for e in rows]
+        return self.event_rows
+
+    def prior_commands(self, until_s: float) -> list:
+        return []
+
+    def command(self, t: float, command_type: str, params: dict, reason: str) -> dict:
+        return self.link.run({"op": "command", "test_id": self.test_id, "command_type": command_type,
+                              "params": params, "reason": reason})
+
+    def state(self) -> dict:
+        """What this run read, as JSON: the other agents' runtimes rebuild the same snapshot from it (FrozenTwin)."""
+        return {"first": self.first, "now_s": self.now_s, "events": self.event_rows,
+                "windows": [[t0, t1, w] for (t0, t1), w in sorted(self.windows.items())]}
+
+    def close(self) -> None:
+        pass  # the run is the operator's
+
+
+class FrozenTwin:
+    """A read-only copy of what an AttachedTwin read: no clock, no commands. For the specialists and the critic."""
+    source = "live"
+    history = False
+
+    def __init__(self, state: dict):
+        self.first, self.now_s, self.rows = state["first"], state["now_s"], state["events"]
+        self.windows = {(w[0], w[1]): w[2] for w in state["windows"]}
+
+    def advance_to(self, t: int) -> None:
+        pass
+
+    def window(self, t0: int, t1: int) -> dict:
+        return self.windows[(t0, t1)]
+
+    def events(self, until_s: float) -> list:
+        return self.rows
+
+    def prior_commands(self, until_s: float) -> list:
+        return []
+
+    def command(self, t: float, command_type: str, params: dict, reason: str) -> dict:
+        return {"accepted": False, "error": "this runtime holds a read-only copy of the twin"}
+
+    def close(self) -> None:
+        pass
+
+
 # ---- the network the agents see -------------------------------------------------------------------
 class TwinNetwork:
     """ReplayNetwork's interface on the twin, plus apply and measure."""
     can_apply = True
     prompt_note = PROMPT_NOTE
 
-    def __init__(self, twin, scenario_name: str, run_id: str, taken_at: str, dt=None, cp=None):
+    def __init__(self, twin, scenario_name: str, run_id: str, taken_at: str, dt=None, cp=None, incident_window=None):
         self.twin, self.run_id, self.taken_at = twin, run_id, taken_at
         self.cp = cp  # the checkpoint: every read of the Viavi MCP and every command is a Cedar decision when it is set
         self.dt = dt  # adapters/twin_dt.DynatraceLogs: every snapshot and change also goes to Dynatrace (or a dry-run file)
@@ -238,7 +309,7 @@ class TwinNetwork:
         self.fault_path = SCENARIOS / f"{scenario_name}.json"
         self.fault = json.loads(self.fault_path.read_text())
         self.layout = None
-        t0, t1 = self.fault["twin"]["incident_window"]
+        t0, t1 = incident_window or self.fault["twin"]["incident_window"]
         twin.advance_to(WINDOW_S)
         first = twin.window(0, WINDOW_S)
         self.names = discover(first)  # the cells come from the data, not from a fixed list
@@ -253,7 +324,7 @@ class TwinNetwork:
             self.ledger.append({"cell_id": c, "parameter": parameter, "old_value": self.config[c][parameter],
                                 "new_value": value, "by": "operator", "at_s": t})
             self.config[c][parameter] = value
-        if dt:  # the minutes before the incident, dated back from now, so Dynatrace shows the network before it broke
+        if dt and getattr(twin, "history", True):  # the minutes before the incident, dated back from now, so Dynatrace shows the network before it broke
             for a in range(0, t0, WINDOW_S):
                 dt.snapshot(snapshot(twin.window(a, a + WINDOW_S), self.config, self.phones_active,
                                      scenario=self.fault["twin"]["scenario"]), twin.source, seconds_ago=t1 - a - WINDOW_S)
@@ -418,15 +489,28 @@ class TwinNetwork:
 def open_twin(mode: str, scenario_name: str, run_id: str, taken_at: str, link=None, dt=None, cp=None) -> TwinNetwork:
     """mode 'recorded' (the saved run, offline) or 'live' (the RSG through twin_link)."""
     spec = json.loads((SCENARIOS / f"{scenario_name}.json").read_text())["twin"]
+    window = None
     if mode == "recorded":
         twin = RecordedTwin(SCENARIOS / spec["recording"], spec["recording_first_timestamp"])
+    elif mode == "attach":  # the operator's run: the newest full window is the incident window
+        from adapters.twin_link import TwinLink
+        twin = AttachedTwin(link or TwinLink())
+        t1 = int(twin.now_s // WINDOW_S) * WINDOW_S
+        window = (t1 - WINDOW_S, t1)
     else:
         from adapters.twin_link import TwinLink
         twin = LiveTwin(link or TwinLink(), spec["scenario"])
     try:
-        return TwinNetwork(twin, scenario_name, run_id, taken_at, dt=dt, cp=cp)
+        return TwinNetwork(twin, scenario_name, run_id, taken_at, dt=dt, cp=cp, incident_window=window)
     except Exception:
         if dt:
             dt.close()
         twin.close()
         raise
+
+
+def open_frozen(state: dict, scenario_name: str, run_id: str, taken_at: str, cp=None) -> TwinNetwork:
+    """The same network as the orchestrator's, rebuilt from the state its AttachedTwin read. Commands are refused."""
+    window = tuple(state["windows"][-1][:2]) if state["windows"] else None
+    t1 = int(state["now_s"] // WINDOW_S) * WINDOW_S
+    return TwinNetwork(FrozenTwin(state), scenario_name, run_id, taken_at, cp=cp, incident_window=(t1 - WINDOW_S, t1))

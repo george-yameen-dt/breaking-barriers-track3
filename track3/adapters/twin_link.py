@@ -126,6 +126,20 @@ def do(op):
         s = wait(op["test_id"], op["to"])
         first = op.get("first") or float(s["first_timestamp"])
         return {"first": first, "window": window(op["test_id"], first, op["to"] - op["seconds"], op["to"])}
+    if op["op"] == "attach":  # a run someone else drives: read its identity and its clock, start nothing
+        s = call("simulation_status", test_id="current")
+        return {"test_id": s["test_id"], "status": s.get("status"), "sim_time": float(s.get("sim_time") or 0),
+                "first_timestamp": float(s.get("first_timestamp") or 0)}
+    if op["op"] == "wait_for":  # until the run's own clock reaches op["to"] (the operator's run advances it)
+        deadline = time.monotonic() + float(op.get("timeout", 300))
+        while time.monotonic() < deadline:
+            s = call("simulation_status", test_id=op["test_id"])
+            if float(s.get("sim_time") or 0) >= op["to"] or str(s.get("status", "")).startswith("STOPPED"):
+                return {"sim_time": float(s.get("sim_time") or 0), "status": s.get("status")}
+            time.sleep(2)
+        raise TimeoutError(f"the run did not reach {op['to']} s")
+    if op["op"] == "window":
+        return window(op["test_id"], op["first"], op["t0"], op["t1"])
     if op["op"] == "events":
         return events(op["test_id"], op["first"], op["until"])
     if op["op"] == "command":
@@ -194,3 +208,20 @@ class LocalLink:
             return self.ns["do"](op)
         except Exception as e:  # the same error TwinLink raises, so callers see one shape
             raise RuntimeError(f"twin {op['op']}: {type(e).__name__}: {str(e)[:500]}") from e
+
+
+class HttpLink(LocalLink):
+    """For code in the VPC (the AgentCore runtimes): the Viavi MCP over HTTP, with read and command operations only.
+    Starting, advancing or stopping a run is the operator's (run8.py), never an agent's."""
+
+    URL = "http://10.0.1.59/mcp"
+    ALLOWED = ("attach", "wait_for", "window", "events", "command")
+
+    def __init__(self, rsg_url: str | None = None):
+        super().__init__(rsg_url or os.environ.get("VIAVI_RSG_URL") or self.URL)
+
+    def run(self, op: dict, timeout_s: int = 600, program: str = BOX):
+        if op["op"] not in self.ALLOWED:
+            raise PermissionError(f"an agent may not run the {op['op']!r} operation; allowed: {', '.join(self.ALLOWED)}")
+        return super().run(op, timeout_s, program)
+

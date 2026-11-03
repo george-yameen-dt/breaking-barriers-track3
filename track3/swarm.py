@@ -6,6 +6,7 @@
   ./swarm.sh run --twin recorded                    the Viavi twin, from Stan's saved run (offline: nothing is sent)
   ./swarm.sh run --twin live                        the Viavi twin itself, through Stan's EC2 (needs VIAVI_RSG_URL)
   ./swarm.sh run --twin live --dt send              ... and its numbers to Dynatrace, where a detector opens the problem
+  ./swarm.sh run --twin attach                      attach to the run the operator's poller drives: read it, send commands, start nothing
 
 The five agents (agents/README.md): orchestrator, coverage, capacity, availability and the risk critic. For now they
 run in this one process (the plan's fallback: one runtime, same contracts); one AgentCore runtime per agent comes next.
@@ -30,6 +31,7 @@ from botocore.config import Config
 import checkpoint
 from adapters.replay import ReplayNetwork
 from adapters.twin import open_twin
+from adapters.twin_link import HttpLink
 from agents.governance import POLICIES, SwarmCheckpoint
 from agents.orchestrator import run_incident
 from checkpoint import now_iso
@@ -57,7 +59,8 @@ def cmd_run(a) -> None:
     if a.dt != "off":  # the twin's numbers and changes as Dynatrace logs, for the problem card
         from adapters.twin_dt import DynatraceLogs
         dt = DynatraceLogs(a.dt, run_id, trace_id, dry_file=DEV_RUNS / run_id / "dynatrace-dry-run.jsonl")
-    net = (open_twin(a.twin, a.twin_scenario, run_id, now_iso(), dt=dt, cp=cp) if a.twin else
+    net = (open_twin(a.twin, a.twin_scenario, run_id, now_iso(), dt=dt, cp=cp,
+                       link=HttpLink() if a.link == "http" else None) if a.twin else
            ReplayNetwork(a.fault, run_id, now_iso()))
     print(f"Run {run_id} (dev run, not declared) · trace {trace_id} · network {net.source}")
     cp.record("run_start", mode="swarm", fault=net.fault["name"], fault_sha256=file_sha(net.fault_path),
@@ -243,7 +246,9 @@ def main() -> None:
     r.add_argument("--dynatrace", action="store_true", help="give the specialists dtctl tools and the Dynatrace for AI skills")
     r.add_argument("--cloud", action="store_true", help="run on AgentCore: one runtime per agent (aws/swarm-runtimes.json)")
     r.add_argument("--declare", action="store_true", help="a reportable run: declared first, evidence saved, records copied to Dynatrace")
-    r.add_argument("--twin", choices=["recorded", "live"], help="run on the Viavi twin: Stan's saved run, or the twin itself")
+    r.add_argument("--twin", choices=["recorded", "live", "attach"],
+                   help="run on the Viavi twin: the saved run, the twin itself, or attach to the run the operator's poller drives")
+    r.add_argument("--link", choices=["ssm", "http"], default="ssm", help="with --twin: reach the Viavi MCP through the EC2 (ssm) or directly (http, inside the VPC)")
     r.add_argument("--twin-scenario", default="s3-power-failure", help="an incident in scenarios/twin")
     r.add_argument("--dt", choices=["off", "dry-run", "send"], default="off",
                    help="with --twin: the twin's numbers and changes as Dynatrace logs (dry-run writes a local file)")

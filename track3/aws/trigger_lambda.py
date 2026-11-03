@@ -77,7 +77,7 @@ def start_run(problem: dict) -> dict:
     now = datetime.now(timezone.utc)
     run_id = f"{now:%Y-%m-%dT%H-%M}-track3-dt-{str(problem['problem_id'])[:24]}"
     return {"mode": "swarm", "run_id": run_id, "trace_id": trace_id_for(problem["problem_id"]),
-            "fault": problem.get("fault", "outage-C"), "taken_at": now.isoformat(timespec="seconds"), "pause": False,
+            "fault": problem.get("fault", "outage-C"), "network": "viavi", "twin_scenario": "healthy-power-cut", "taken_at": now.isoformat(timespec="seconds"), "pause": False,
             "operator": "dynatrace-workflow", "declared": False, "declared_s3": "", "commit": "",
             "problem_id": str(problem["problem_id"]), "affected_cells": affected_cells(problem), "alert_text": alert_text(problem)}
 

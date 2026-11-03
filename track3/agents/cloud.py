@@ -19,6 +19,8 @@ from botocore.config import Config
 import checkpoint
 import telemetry
 from adapters.replay import ReplayNetwork
+from adapters.twin import open_frozen, open_twin
+from adapters.twin_link import HttpLink
 from agents.governance import POLICIES, AgentFailed, SwarmCheckpoint, run_agent
 from agents.orchestrator import Run, run_incident
 from agents.risk import assess_proposals
@@ -39,7 +41,8 @@ class RemoteAgents:
 
     def __init__(self, payload: dict):
         # parent_span_id: the orchestrator's root span, so each agent's spans hang under it in the run's one trace
-        self.base = {k: payload.get(k) for k in ("run_id", "trace_id", "fault", "taken_at", "declared", "parent_span_id")}
+        self.base = {k: payload.get(k) for k in ("run_id", "trace_id", "fault", "taken_at", "declared", "parent_span_id",
+                                                          "network", "twin_scenario", "twin_state")}
         self.client = boto3.client("bedrock-agentcore", region_name=REGION,
                                    config=Config(read_timeout=600, connect_timeout=15, retries={"total_max_attempts": 1}))
 
@@ -93,9 +96,21 @@ def handle(payload: dict) -> dict:
             cp.close()  # every runtime ends its own root span; only the orchestrator writes run_end
 
 
+def network_for(cp, payload: dict, run_id: str):
+    """The network this runtime sees. A worker gets a frozen copy of what the orchestrator read (twin_state); the
+    orchestrator attaches to the operator's live Viavi run over HTTP (read and command only); with no twin, the replay."""
+    if payload.get("twin_state"):
+        return open_frozen(payload["twin_state"], payload["twin_scenario"], run_id, payload["taken_at"], cp=cp)
+    if payload.get("network") == "viavi":
+        return open_twin("attach", payload["twin_scenario"], run_id, payload["taken_at"], link=HttpLink(), cp=cp)
+    return ReplayNetwork(payload["fault"], run_id, payload["taken_at"])
+
+
 def _handle(cp, mode: str, role: str, payload: dict) -> dict:
     run_id = cp.run_id
-    net = ReplayNetwork(payload["fault"], run_id, payload["taken_at"])
+    net = network_for(cp, payload, run_id)
+    if mode == "swarm" and payload.get("network") == "viavi":  # the workers rebuild this network from what it has read
+        payload = {**payload, "twin_state": net.twin.state()}
     try:
         if mode == "specialist":
             if payload.get("ping"):
