@@ -32,7 +32,7 @@
   "extra_units": {},
   "platform": {
     "agents": "AgentCore Runtime (VPC): track3_orchestrator, track3_coverage, track3_capacity, track3_availability, track3_risk (role team04-track3-runtime, /bb26/ + boundary)",
-    "tools": "Viavi MCP over HTTP (http://10.0.1.59/mcp, nginx proxy on the team EC2), read allow-list plus tx_power and antenna_tilt, gated by Cedar through the checkpoint; dtctl read verbs only on laptop runs",
+    "tools": "Viavi MCP over HTTP (http://10.0.1.59/mcp, nginx proxy on the team EC2): a read allow-list plus tx_power and antenna_tilt, gated by Cedar through the checkpoint",
     "policy": "Cedar policies/swarm.cedar in the checkpoint; the AgentCore Gateway and Policy engine from the earlier design are deployed but no longer used",
     "trigger": "Dynatrace workflow 'Track 3 - problem triggers the swarm' -> Lambda track3-trigger (declares targets in S3, one run per incident) -> orchestrator runtime",
     "traces": "every run exports to CloudWatch, Dynatrace and Arize; OTEL_SERVICE_NAME=multi-agent-swarm"
