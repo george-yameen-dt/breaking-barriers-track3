@@ -11,7 +11,7 @@ Primary track: Track 3 (Multi-Agent Swarms for Application Enablement through NL
 1. **Viavi AI RAN** runs a 4-cell scenario (the organisers' `maveric_4cell` sample). A poller on the team EC2 (`scenarios/twin/run8.py`) sends one network record and one record per cell to Dynatrace every minute, with the cell's real Viavi name (`S4/B3/C1`), site, band, PCI and a wall-clock time.
 2. **Dynatrace** (OpenPipeline `gy-viavi-twin-cells`) builds the Smartscape: network, towers (sites) and **cells**, with neighbour links, and extracts cell metrics (QoS, load, phones, phones without service, power, edge RSRP, cell enabled) with the cell and its criticality as dimensions.
 3. **Davis anomaly detectors** on those metrics (not on log fields) raise events on the cell; an **event correlation rule** groups the events of one network into **one problem**. A workflow sends the problem to a Lambda, which declares the run's targets in S3 and starts the orchestrator on AgentCore.
-4. **Five agents** on Amazon Bedrock, each in its own AgentCore runtime, work the problem: three specialists (coverage, capacity, availability) propose changes in their own domain, a risk critic assesses them, the orchestrator picks one. They read Dynatrace with read-only `dtctl` only.
+4. **Five agents** on Amazon Bedrock, each in its own AgentCore runtime, work the problem: three specialists (coverage, capacity, availability) propose changes in their own domain, a risk critic assesses them, the orchestrator picks one. On a laptop run they can read Dynatrace with read-only `dtctl`; on AgentCore they get the problem from the workflow (see `GAPS.md`).
 5. The orchestrator **applies the change through the Viavi MCP** (`simulation_command`: `tx_power` or `antenna_tilt`), **measures the next window**, and **undoes it if it made things worse**. No person approves a network change: Cedar's envelope decides (see below).
 6. **Critical cells** (a hospital, an emergency dispatch centre; synthetic labels in `scenarios/twin/critical-cells.json`) are protected: Cedar forbids weakening them, caps their power step, and forbids a change predicted to hurt one; verification fails a change that lowers one's QoS.
 7. Every model call, tool call and hand-off crosses **one checkpoint** (`checkpoint.py`): a **Cedar** decision (`policies/swarm.cedar`), **Bedrock Guardrails** on model input and output, and an **audit record** in CloudWatch Logs and DynamoDB with one run id and one trace id. **Every run is traced** to CloudWatch, Dynatrace and Arize (service `multi-agent-swarm`); a run without credentials for either destination is refused, never run untraced.
@@ -20,7 +20,7 @@ Primary track: Track 3 (Multi-Agent Swarms for Application Enablement through NL
 
 **The envelope (what Cedar lets the agents do alone).** `tx_power` within 30-46 dBm, from 6 dB down to 8 dB up per change; tilt 4-10 degrees, at most 5 per change; one change per run; no second change to a cell within 15 minutes. Critical cells: no power cut, no tilt up, at most +4 dB. Tools: dtctl read verbs only; Viavi read calls plus `tx_power` and `antenna_tilt` for the orchestrator, with the run's trace id in the command's reason. Everything else (`raw`, `turn_off`, handovers, starting or stopping a run, scenario writes) is denied.
 
-**Test design.** Every run probes Cedar with a change that must be denied (`deny_probe`) and, after the fix, tries the same cell again right away (`stabilization_probe`). The checks (`tools/check.py`) read only the audit records: `swarm_autonomous_apply`, `swarm_verify`, `swarm_deny`, `swarm_stabilization`, `swarm_trace`, `critical_safe`, `problem_to_command`, `detect`, `one_problem`.
+**Test design.** Every run probes Cedar with a change that must be denied (`deny_probe`) and, after the fix, tries the same cell again right away (`stabilization_probe`). The checks (`tools/check.py`) read only the audit records: `swarm_autonomous_apply`, `swarm_verify`, `swarm_deny`, `swarm_stabilization`, `swarm_trace`, `critical_safe`, `problem_to_command`, `swarm_pause`.
 
 **Architecture.**
 
@@ -50,10 +50,9 @@ AWS setup files are in `aws/`; the runtime package is built by `agentcore/build_
 | Detectors and the correlation rule | `scenarios/twin/dynatrace/apply-detection.sh apply` |
 | Build and deploy the runtimes and the trigger | `agentcore/build_swarm.sh` · `aws/swarm_setup.py` · `aws/trigger_setup.py` · `workflows/apply.sh` |
 | **The live run**: the operator starts the Viavi scenario; Dynatrace, the workflow and the swarm do the rest | on the EC2: `~/team04-track3/viavi-run --scenario team04-track3-live --minutes 16` |
-| Copy what Dynatrace did about the fault into the run's records | `python3 tools/collect_dynatrace.py --run-id <run_id> --twin-run-id <poller run id>` |
 | The swarm on a laptop, attached to the live run | `./swarm.sh run --twin attach` |
 | The swarm on the saved Viavi run (offline) | `./swarm.sh run --twin recorded` |
-| Pause: capacity's model withdrawn mid-run, the run goes on | `./swarm.sh run --twin recorded --pause` |
+| **Pause**: capacity's model withdrawn mid-run, calls refused, the run goes on | POST a problem with `"pause": true` to the trigger Lambda while a Viavi run is going (see `aws/trigger_lambda.py`), or `./swarm.sh run --twin recorded --pause` |
 | Arize Signal gate: an open critical/high Signal issue withdraws the agent model | `./track3.sh signal [--watch 60] [--dry-run]` |
 | Register an agent change (a prompt version) as a candidate | `./track3.sh register-prompt --agent network-agent --version v2` |
 | Promote it: only an AI engineer's `yes` with passing evidence (the governance gate) | `./track3.sh promote --agent network-agent --version v2 --role ai_engineer --experiment-run <run_id>` |

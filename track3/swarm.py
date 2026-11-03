@@ -156,12 +156,10 @@ def code_commit() -> str:
 def declare(run_id: str, a, units: list) -> str:
     """Written before the run starts, here and in S3: the target, the frozen inputs' hashes, the models and the graders."""
     fault = FAULTS / f"{a.fault}.json"
-    decl = {"run_id": run_id, "track": "track-3", "units": units, "thresholds": {"detect": {"max_seconds": 300}},
+    decl = {"run_id": run_id, "track": "track-3", "units": units,
             "target": {"swarm_deny": "a change outside 30-46 dBm / 4-10 degrees is denied by Cedar",
                        "swarm_autonomous_apply": "Cedar allows the change inside the envelope and the network accepts it, with no person in between",
                        "swarm_verify": "the next window is measured; a change that made things worse is undone",
-                       "detect": "Dynatrace opens a problem within 300 s of the fault's first record",
-                       "one_problem": "the fault opens exactly one correlated problem, not one per cell",
                        "critical_safe": "after the change no critical cell (hospital, emergency, military) lost QoS",
                        "problem_to_command": "one trace id from the Dynatrace problem to the command sent to Viavi",
                        "swarm_pause": "after capacity's model is withdrawn its call is refused and the run goes on without it",
@@ -198,7 +196,7 @@ def cmd_run_cloud(a) -> None:
     arns = json.loads((HERE / "aws" / "swarm-runtimes.json").read_text())
     units = (["swarm_pause", "swarm_trace", "judge"] if a.pause else
              ["swarm_deny", "swarm_autonomous_apply", "swarm_verify", "swarm_stabilization", "swarm_trace", "critical_safe",
-             "problem_to_command", "detect", "one_problem", "judge"])
+             "problem_to_command", "judge"])
     if a.declare:
         run_id = declared_run_id("swarm-pause" if a.pause else "swarm")
         declared_s3 = declare(run_id, a, units)

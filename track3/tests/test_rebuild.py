@@ -62,8 +62,8 @@ def test_policy_file_falls_back_to_path(copy):
 
 def _declare_autonomous(root: Path, run_id: str, records: list, thresholds: dict) -> None:
     old = json.loads(next((root / "evidence" / "declared").glob("*swarm*.json")).read_text())
-    decl = {**old, "run_id": run_id, "units": ["problem_to_command", "detect", "one_problem"],
-            "target": {"problem_to_command": "x", "detect": "x", "one_problem": "x"}, "thresholds": thresholds}
+    decl = {**old, "run_id": run_id, "units": ["problem_to_command", "swarm_verify"],
+            "target": {"problem_to_command": "x", "swarm_verify": "x"}, "thresholds": thresholds}
     decl.pop("policies_sha256", None)
     (root / "evidence" / "declared" / f"{run_id}.json").write_text(json.dumps(decl))
     run = root / "evidence" / "runs" / run_id
@@ -76,23 +76,22 @@ def _autonomous_records(trace: str, command_trace: str, gap_s: int) -> list:
         {"seq": 1, "kind": "run_start", "problem_id": "P-2611-1", "trace_id": trace},
         {"seq": 3, "kind": "applied", "cell_id": "S4", "parameter": "tx_power_dbm", "old_value": 40, "new_value": 44,
          "reply": {"accepted": True}, "command_reason": f"trace_id={command_trace} run_id=r"},
-        {"seq": 9, "kind": "dynatrace_evidence", "fault_start": "2026-11-03T10:00:00Z", "problem_count": 1,
-         "problems": [{"display_id": "P-1", "event.start": f"2026-11-03T10:{gap_s // 60:02d}:{gap_s % 60:02d}Z"}]}]
+        {"seq": 4, "kind": "verification", "status": "VERIFIED", "phones_without_service_before": 15.0, "measured_after": 11.0}]
 
 
 def test_rebuild_follows_trace_from_problem_to_viavi_command(copy, capsys):
     import hashlib
     trace = hashlib.sha256(b"P-2611-1").hexdigest()[:32]
-    _declare_autonomous(copy, "2026-11-03T10-00-track3-swarm-01", _autonomous_records(trace, trace, 90), {"detect": {"max_seconds": 300}})
+    _declare_autonomous(copy, "2026-11-03T10-00-track3-swarm-01", _autonomous_records(trace, trace, 90), {})
     assert rebuild.main() == 0
     res = json.loads((copy / "evidence" / "results.json").read_text())["2026-11-03T10-00-track3-swarm-01"]
-    assert res == {"problem_to_command": "pass", "detect": "pass", "one_problem": "pass"}, capsys.readouterr().out
+    assert res == {"problem_to_command": "pass", "swarm_verify": "pass"}, capsys.readouterr().out
 
 
-def test_rebuild_fails_a_late_detection_against_the_declared_threshold(copy):
+def test_rebuild_fails_a_command_that_carries_another_trace_id(copy):
     import hashlib
     trace = hashlib.sha256(b"P-2611-1").hexdigest()[:32]
-    _declare_autonomous(copy, "2026-11-03T10-00-track3-swarm-02", _autonomous_records(trace, "f" * 32, 500), {"detect": {"max_seconds": 300}})
+    _declare_autonomous(copy, "2026-11-03T10-00-track3-swarm-02", _autonomous_records(trace, "f" * 32, 0), {})
     rebuild.main()
     res = json.loads((copy / "evidence" / "results.json").read_text())["2026-11-03T10-00-track3-swarm-02"]
-    assert res["detect"] == "fail" and res["problem_to_command"] == "fail" and res["one_problem"] == "pass"
+    assert res["problem_to_command"] == "fail" and res["swarm_verify"] == "pass"

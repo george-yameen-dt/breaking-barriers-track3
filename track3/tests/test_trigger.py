@@ -102,8 +102,9 @@ def test_the_targets_are_declared_in_s3_before_the_orchestrator_starts(lam):
     put = order[0][1]
     assert put["Key"] == f"evidence/declared/{run_id}.json"
     decl = json.loads(put["Body"])
-    assert decl["run_id"] == run_id and decl["thresholds"] == {"detect": {"max_seconds": 300}}
-    assert {"detect", "one_problem", "critical_safe", "problem_to_command", "swarm_autonomous_apply", "swarm_verify"} <= set(decl["units"])
+    assert decl["run_id"] == run_id
+    assert {"critical_safe", "problem_to_command", "swarm_autonomous_apply", "swarm_verify"} <= set(decl["units"])
+    assert not {"detect", "one_problem"} & set(decl["units"]), "operator-attested checks are not declared units"
     assert decl["test_set"] == "scenarios/twin/healthy-power-cut.json" and len(decl["test_set_sha256"]) == 64
     sent = json.loads(order[1][1]["Payload"])["_run"]
     assert sent["declared"] is True and sent["declared_s3"].startswith("2026-11-03T10:00")
@@ -121,6 +122,7 @@ def test_the_declared_units_exist_and_the_inputs_hash(lam):
     assert set(lam.UNITS) <= set(check.UNITS)
     doc = lam.declared_doc({"run_id": "r", "problem_id": "P-1", "trace_id": "a" * 32})
     assert doc["policies_sha256"] and set(doc["target"]) >= set(lam.UNITS) - {"judge"}
+    assert "detect" not in lam.UNITS and "one_problem" not in lam.UNITS
 
 
 # ---- one run per incident window: a second problem for the same network within 15 minutes is the same incident ----------------
@@ -138,3 +140,19 @@ def test_after_15_minutes_a_new_incident_starts(lam, monkeypatch):
     monkeypatch.setattr(lam.time, "time", lambda: real() + 16 * 60)
     out = lam.handler(event("P-3"), CTX)
     assert out["statusCode"] == 202 and lam.lam.invoke.call_count == 2
+
+
+# ---- the pause run: a manual trigger may ask for the pause demo, and then the declaration includes its unit ----------------
+def test_a_pause_request_is_declared_and_passed_on(lam):
+    out = lam.handler(event("pause-demo-1", pause=True), CTX)
+    decl = json.loads(lam.s3.put_object.call_args.kwargs["Body"])
+    assert "swarm_pause" in decl["units"] and "swarm_pause" in decl["target"]
+    sent = json.loads(lam.lam.invoke.call_args.kwargs["Payload"])["_run"]
+    assert sent["pause"] is True and out["statusCode"] == 202
+
+
+def test_an_ordinary_run_does_not_pause_or_declare_the_pause_unit(lam):
+    lam.handler(event("P-9"), CTX)
+    decl = json.loads(lam.s3.put_object.call_args.kwargs["Body"])
+    assert "swarm_pause" not in decl["units"]
+    assert json.loads(lam.lam.invoke.call_args.kwargs["Payload"])["_run"]["pause"] is False

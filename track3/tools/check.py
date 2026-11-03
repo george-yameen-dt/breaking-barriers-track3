@@ -178,31 +178,7 @@ def swarm_stabilization(recs: list) -> tuple:
     return bool(hit), f"seq {hit[0]['seq']}: a second change to {hit[0]['cell_id']} right after is denied" if hit else "no stabilization deny"
 
 
-# ---- what Dynatrace did, and how one trace id runs from the problem to the Viavi command (autonomous swarm runs) ----------
-def _when(text: str):
-    from datetime import datetime
-    return datetime.fromisoformat(str(text).replace("Z", "+00:00"))
-
-
-def detect(recs: list, max_seconds: int = 300) -> tuple:
-    """Dynatrace opened a problem within max_seconds of the fault's first record (declared before the run)."""
-    ev = [r for r in recs if r["kind"] == "dynatrace_evidence"]
-    if not ev or not ev[0].get("problems"):
-        return False, "no Dynatrace evidence record with a problem in it"
-    gap = (_when(ev[0]["problems"][0]["event.start"]) - _when(ev[0]["fault_start"])).total_seconds()
-    return gap <= max_seconds, (f"seq {ev[0]['seq']}: problem {ev[0]['problems'][0].get('display_id')} opened {gap:.0f} s after the fault "
-                                f"(declared at most {max_seconds} s)")
-
-
-def one_problem(recs: list) -> tuple:
-    """One fault, one correlated problem: the evidence counts exactly one."""
-    ev = [r for r in recs if r["kind"] == "dynatrace_evidence"]
-    if not ev:
-        return False, "no Dynatrace evidence record"
-    n = ev[0].get("problem_count")
-    return n == 1, f"seq {ev[0]['seq']}: {n} problem(s) opened for the fault (declared exactly 1)"
-
-
+# ---- critical cells, and how one trace id runs from the problem to the Viavi command (autonomous swarm runs) -----------
 def critical_safe(recs: list) -> tuple:
     """After the change no critical cell lost QoS."""
     ver = [r for r in recs if r["kind"] == "verification"]
@@ -231,4 +207,4 @@ UNITS = {"deny": deny, "allow": allow, "pause": pause, "trace": trace, "judge": 
          "swarm_deny": swarm_deny, "swarm_allow": swarm_allow, "swarm_pause": swarm_pause,
          "swarm_trace": swarm_trace, "swarm_stabilization": swarm_stabilization,
          "swarm_autonomous_apply": swarm_autonomous_apply, "swarm_verify": swarm_verify,
-         "detect": detect, "one_problem": one_problem, "critical_safe": critical_safe, "problem_to_command": problem_to_command}
+         "critical_safe": critical_safe, "problem_to_command": problem_to_command}

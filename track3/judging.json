@@ -24,16 +24,15 @@
     "swarm_trace": "one trace id and contiguous records across the five AgentCore runtimes",
     "critical_safe": "after the change no critical cell lost QoS",
     "problem_to_command": "one trace id from the Dynatrace problem to the command sent to Viavi",
-    "detect": "Dynatrace opens a problem within 300 s of the fault's first record",
-    "one_problem": "the fault opens exactly one correlated problem",
-    "judge": "an independent judge (Claude) scores the diagnosis and the fix >= 3/5"
+    "judge": "an independent judge (Claude) scores the diagnosis and the fix >= 3/5",
+    "swarm_pause": "after capacity's model is withdrawn its call is refused and the run goes on without it"
   },
   "model_artifact_s3_prefix": "none (no model is trained; agents use Bedrock models)",
   "data": "DATA.md",
   "extra_units": {},
   "platform": {
     "agents": "AgentCore Runtime (VPC): track3_orchestrator, track3_coverage, track3_capacity, track3_availability, track3_risk (role team04-track3-runtime, /bb26/ + boundary)",
-    "tools": "Viavi MCP over HTTP (http://10.0.1.59/mcp, nginx proxy on the team EC2), read allow-list plus tx_power and antenna_tilt, gated by Cedar through the checkpoint; dtctl read verbs only",
+    "tools": "Viavi MCP over HTTP (http://10.0.1.59/mcp, nginx proxy on the team EC2), read allow-list plus tx_power and antenna_tilt, gated by Cedar through the checkpoint; dtctl read verbs only on laptop runs",
     "policy": "Cedar policies/swarm.cedar in the checkpoint; the AgentCore Gateway and Policy engine from the earlier design are deployed but no longer used",
     "trigger": "Dynatrace workflow 'Track 3 - problem triggers the swarm' -> Lambda track3-trigger (declares targets in S3, one run per incident) -> orchestrator runtime",
     "traces": "every run exports to CloudWatch, Dynatrace and Arize; OTEL_SERVICE_NAME=multi-agent-swarm"

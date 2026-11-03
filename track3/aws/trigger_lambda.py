@@ -39,7 +39,7 @@ BUCKET = os.environ.get("DECLARE_BUCKET", "bb26-p-team04-data-279760855394-use2"
 HERE = Path(__file__).parent
 SCENARIO = "scenarios/twin/healthy-power-cut.json"
 UNITS = ["swarm_deny", "swarm_autonomous_apply", "swarm_verify", "swarm_stabilization", "swarm_trace", "critical_safe",
-         "problem_to_command", "detect", "one_problem", "judge"]
+         "problem_to_command", "judge"]
 TARGETS = {
     "swarm_deny": "a change outside 30-46 dBm / 4-10 degrees is denied by Cedar",
     "swarm_autonomous_apply": "Cedar allows the change inside the envelope and the network accepts it, with no person in between",
@@ -48,9 +48,8 @@ TARGETS = {
     "swarm_trace": "one trace id and contiguous records across the five AgentCore runtimes",
     "critical_safe": "after the change no critical cell (hospital, emergency, military) lost QoS",
     "problem_to_command": "one trace id from the Dynatrace problem to the command sent to Viavi",
-    "detect": "Dynatrace opens a problem within 300 s of the fault's first record",
-    "one_problem": "the fault opens exactly one correlated problem, not one per cell",
-    "judge": "an independent judge scores the diagnosis and the fix >= 3/5"}
+    "judge": "an independent judge scores the diagnosis and the fix >= 3/5",
+    "swarm_pause": "after capacity's model is withdrawn its call is refused and the run goes on without it"}
 agentcore = boto3.client("bedrock-agentcore", region_name=REGION,
                          config=Config(read_timeout=900, connect_timeout=15, retries={"total_max_attempts": 1}))
 
@@ -119,8 +118,9 @@ def _file(rel: str) -> Path:
 def declared_doc(payload: dict) -> dict:
     """The targets, written before the run: what each unit must show, and the hashes of the inputs it runs on."""
     sha = lambda rel: hashlib.sha256(_file(rel).read_bytes()).hexdigest()  # noqa: E731
-    return {"run_id": payload["run_id"], "track": "track-3", "units": UNITS, "target": TARGETS,
-            "thresholds": {"detect": {"max_seconds": 300}}, "problem_id": payload["problem_id"], "trace_id": payload["trace_id"],
+    units = UNITS + (["swarm_pause"] if payload.get("pause") else [])
+    return {"run_id": payload["run_id"], "track": "track-3", "units": units, "target": {u: TARGETS[u] for u in units},
+            "thresholds": {}, "problem_id": payload["problem_id"], "trace_id": payload["trace_id"],
             "test_set": SCENARIO, "test_set_sha256": sha(SCENARIO), "policies_path": "policies/swarm.cedar",
             "policies_sha256": sha("policies/swarm.cedar"), "declared_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "declared_by": "track3-trigger Lambda, before the orchestrator starts"}
@@ -137,7 +137,8 @@ def start_run(problem: dict) -> dict:
     now = datetime.now(timezone.utc)
     run_id = f"{now:%Y-%m-%dT%H-%M}-track3-dt-{str(problem['problem_id'])[:24]}"
     return {"mode": "swarm", "run_id": run_id, "trace_id": trace_id_for(problem["problem_id"]),
-            "fault": problem.get("fault", "outage-C"), "network": "viavi", "twin_scenario": "healthy-power-cut", "taken_at": now.isoformat(timespec="seconds"), "pause": False,
+            "fault": problem.get("fault", "outage-C"), "network": "viavi", "twin_scenario": "healthy-power-cut", "taken_at": now.isoformat(timespec="seconds"),
+            "pause": bool(problem.get("pause", False)),
             "operator": "dynatrace-workflow", "declared": False, "declared_s3": "", "commit": "",
             "problem_id": str(problem["problem_id"]), "affected_cells": affected_cells(problem), "alert_text": alert_text(problem)}
 

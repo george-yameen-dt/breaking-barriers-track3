@@ -124,3 +124,8 @@ def test_apply_is_gated_by_cedar(cp):
     assert reply["accepted"] is False and "Cedar" in reply["error"] and not net.twin.sent
     reply = net.apply("S4", "tx_power_dbm", 44, reason=f"trace_id={TRACE} run_id=test-run agent=coverage")
     assert reply["accepted"] is True and net.twin.sent[0]["params"] == {"cell": "S4/B3/C1", "power": 44}
+
+
+def test_no_dynatrace_mcp_tools_are_registered():
+    tools = json.loads((TRACK3 / "policies" / "tools.json").read_text())
+    assert "dt_mcp" not in tools and set(k for k in tools if not k.startswith("_")) == {"dtctl", "viavi"}

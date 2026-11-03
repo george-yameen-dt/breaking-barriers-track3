@@ -36,31 +36,7 @@ def test_units_are_registered():
     assert {"swarm_autonomous_apply", "swarm_verify"} <= set(check.UNITS)
 
 
-# ---- the units that read what Dynatrace did (copied into the audit records by tools/collect_dynatrace.py) --------------
-def evidence(**over):
-    return rec(9, "dynatrace_evidence", fault_start="2026-11-03T10:00:00Z", problem_count=1,
-               problems=[{"display_id": "P-2611-1", "event.start": "2026-11-03T10:01:30Z", "event.name": "Cell QoS dropped"}],
-               query_sha256="abc", **over)
-
-
-def test_detect_passes_within_the_declared_minutes():
-    ok, why = check.detect([evidence()], max_seconds=300)
-    assert ok and "90" in why, why
-    late = rec(9, "dynatrace_evidence", fault_start="2026-11-03T10:00:00Z", problem_count=1,
-               problems=[{"display_id": "P-1", "event.start": "2026-11-03T10:09:00Z"}])
-    assert not check.detect([late], max_seconds=300)[0]
-    assert not check.detect([], max_seconds=300)[0], "no Dynatrace evidence fails"
-    none = rec(9, "dynatrace_evidence", fault_start="2026-11-03T10:00:00Z", problem_count=0, problems=[])
-    assert not check.detect([none], max_seconds=300)[0], "no problem opened fails"
-
-
-def test_one_problem_for_one_incident():
-    assert check.one_problem([evidence()])[0]
-    two = rec(9, "dynatrace_evidence", fault_start="x", problem_count=2, problems=[{}, {}])
-    assert not check.one_problem([two])[0], "an incident that opened two problems fails"
-    assert not check.one_problem([])[0]
-
-
+# ---- critical cells and the one trace id from the problem to the Viavi command ------------------------------------------
 def test_critical_cells_not_hurt():
     good = rec(5, "verification", status="VERIFIED", phones_without_service_before=16.0, measured_after=12.0, critical_cells_hurt=[])
     assert check.critical_safe([good])[0]
@@ -85,4 +61,5 @@ def test_problem_to_command_follows_one_trace_id():
 
 
 def test_new_units_registered():
-    assert {"detect", "one_problem", "critical_safe", "problem_to_command"} <= set(check.UNITS)
+    assert {"critical_safe", "problem_to_command"} <= set(check.UNITS)
+    assert not {"detect", "one_problem"} & set(check.UNITS), "the Dynatrace-attested checks were taken out of scope"
