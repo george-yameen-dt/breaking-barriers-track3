@@ -6,7 +6,6 @@
 - We declare the departure from the written wording so it is not found.
 
 ## What the agents do not do
-- **The agents did not read Dynatrace in the final runs.** A Dynatrace MCP endpoint and token are configured (`tools/set_dt_mcp.py`) and the specialists and the risk critic are offered `dt_query`, `dt_problems` and `dt_log_patterns`, decided by `dql-read-shape`. In the evidence run and the pause run no agent called them. The problem the agents work on comes from the Dynatrace workflow (id, title, the cells and their criticality, start time).
 - **Power and tilt in the cell table are not read back from the simulator.** The agents' cell table, and the poller's `twin.tx_power_dbm` and `twin.tilt_deg` in Dynatrace, use the planned values (40 dBm, 6 degrees) changed by the commands the twin accepted; a dark cell still shows 40 dBm, and the twin does not report tilt at all. What is measured is the signal: RSRP, SINR, QoS, throughput and the phones, and the 15 to 11 phones without service after the fix is measured from the next window. A teammate's change that reports measured power was not taken into the final build (evidence was produced without it).
 
 ## How a change is tested
