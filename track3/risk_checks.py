@@ -4,6 +4,7 @@ Triage only chooses among proposals that pass. Cedar (policies/swarm.cedar) stil
 """
 
 import rfmodel as m
+from adapters import criticality as crit
 
 POWER_RANGE = (30, 46)
 TILT_RANGE = (0, 10)
@@ -14,6 +15,32 @@ MAX_DROP_RISE = 0.3      # no neighbour may gain more than this many phones with
 DROPPED_ALERT = 0.5      # with more phones than this without service, a fix must reduce that number
 RISK_ORDER = {"low": 0, "medium": 1, "high": 2}
 _MISSING = object()
+
+
+def raises_interference(parameter: str, current: int, value: int) -> bool:
+    """More power or less tilt makes a cell reach, and disturb, more of its neighbours."""
+    return (parameter == "tx_power_dbm" and value > current) or (parameter == "tilt_deg" and value < current)
+
+
+def weakens(parameter: str, current: int, value: int) -> bool:
+    """Less power or more tilt makes the changed cell cover less."""
+    return (parameter == "tx_power_dbm" and value < current) or (parameter == "tilt_deg" and value > current)
+
+
+def critical_harm(net, cell_id: str, parameter: str, value: int, registry: dict | None = None) -> bool:
+    """True when this change is likely to hurt a critical cell other than the one changed. The twin's what-if does not
+    predict neighbours, so the proxy is: the change adds interference while a critical neighbour's edge SINR (p10) is
+    already at or below the floor. The real effect is measured one window after the change (apply_and_verify)."""
+    cid = crit._site(cell_id)
+    current = net.config.get(cid, {}).get(parameter)
+    if not isinstance(current, int) or not raises_interference(parameter, current, value):
+        return False
+    for c in net.snapshot["cells"]:
+        if c["cell_id"] == cid or not c.get("enabled") or crit.criticality_of(c["cell_id"], registry) == "none":
+            continue
+        if c.get("sinr_db_p10") is not None and c["sinr_db_p10"] <= SINR_FLOOR_DB:
+            return True
+    return False
 
 
 def in_range(parameter: str, value: int) -> bool:
@@ -69,7 +96,7 @@ def cross_agent(proposal: dict, proposals: list, reports: dict) -> dict:
 
 
 def check(proposal: dict, evidence: dict, snap: dict, layout: dict, config: dict, ledger: list,
-          proposals: list, reports: dict, simulate=None) -> dict:
+          proposals: list, reports: dict, simulate=None, criticality: str = "none", critical_harm: bool = False) -> dict:
     """The risk assessment for one proposal: checks, cross-agent view, risk, recommendation and plain reasons.
     simulate is the network's own what-if (the twin's); by default the rfmodel one on layout and config."""
     pid, cell_id, parameter, value = (proposal["proposal_id"], proposal["cell_id"], proposal["parameter"],
@@ -115,6 +142,8 @@ def check(proposal: dict, evidence: dict, snap: dict, layout: dict, config: dict
         "coverage_floor_ok": dropped_delta <= 0,
         "neighbor_impact_ok": not hurt and worst_drop <= MAX_DROP_RISE,
         "improves": improves,
+        "critical_cell_ok": not (criticality != "none" and weakens(parameter, current, value)),
+        "critical_neighbour_ok": not critical_harm,
     }
     hard = [k for k, failed in (("changes_something", not checks["changes_something"]),
                                 ("in_approved_range", not checks["in_approved_range"]),
@@ -123,7 +152,9 @@ def check(proposal: dict, evidence: dict, snap: dict, layout: dict, config: dict
                                 ("changed_recently", checks["changed_recently"]),
                                 ("evidence_matches_snapshot", not checks["evidence_matches_snapshot"]),
                                 ("simulation_ref_valid", not checks["simulation_ref_valid"]),
-                                ("coverage_floor_ok", not checks["coverage_floor_ok"])) if failed]
+                                ("coverage_floor_ok", not checks["coverage_floor_ok"]),
+                                ("critical_cell_ok", not checks["critical_cell_ok"]),
+                                ("critical_neighbour_ok", not checks["critical_neighbour_ok"])) if failed]
     soft = [k for k in ("confidence_ok", "neighbor_impact_ok", "improves") if not checks[k]]
     risk = "high" if hard else ("medium" if soft else "low")
     if not hard and not soft:
@@ -148,7 +179,7 @@ def check(proposal: dict, evidence: dict, snap: dict, layout: dict, config: dict
         ("it fixes the alert" if improves else
          "it does not reduce the phones without service" if before > DROPPED_ALERT else "it does not improve edge SINR"),
     ]
-    return {"proposal_id": pid, "risk": risk, "recommendation": recommendation, "checks": checks,
+    return {"proposal_id": pid, "risk": risk, "recommendation": recommendation, "checks": checks, "criticality": criticality,
             "cross_agent": cross_agent(proposal, proposals, reports), "failed": hard + soft, "reasons": reasons,
             "predicted": {"phones_dropped_now": before, "phones_dropped_after": sim["predicted_network"]["phones_dropped"],
                           "deltas": deltas, "simulation_ref": sim["simulation_ref"]}}

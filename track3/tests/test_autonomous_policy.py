@@ -43,7 +43,8 @@ def gov(principal, action, resource, **context):
 def apply_ctx(parameter="enabled", old=0, new=1, **over):
     return {"proposal_id": "PROP-availability-1", "parameter": parameter, "old_value": old, "new_value": new,
             "delta": new - old, "abs_delta": abs(new - old), "risk_checks_passed": True, "selected_proposal_matches": True,
-            "applies_this_run": 0, "minutes_since_last_change": 9999, **over}
+            "applies_this_run": 0, "minutes_since_last_change": 9999,
+            "criticality": "none", "critical_harm_predicted": False, **over}
 
 
 # ---- schemas: every policy is well-typed, so a misspelled context key is an error, not a silent never-permit -------------
@@ -140,12 +141,6 @@ def test_second_apply_same_cell_in_15m_denied():
 
 def test_power_above_46_denied():
     assert swarm(ORCH, "apply_cell_configuration", 'Cell::"S4"', apply_ctx("tx_power_dbm", 44, 50)) == ("Deny", ["power-range"])
-
-
-def test_protected_cell_A():
-    assert swarm(ORCH, "apply_cell_configuration", 'Cell::"A"', apply_ctx()) == ("Deny", ["protected-cell"])
-    ctx = {"proposal_id": "P", "ledger_status": "VERIFY_FAILED", "restores_old_value": True}
-    assert swarm(ORCH, "revert_cell_configuration", 'Cell::"A"', ctx) == ("Deny", ["protected-cell"])
 
 
 def test_only_orchestrator_applies():

@@ -34,7 +34,8 @@ action apply_cell_configuration appliesTo {
   principal: Agent, resource: Cell,
   context: {
     proposal_id: String, parameter: String, old_value: Long, new_value: Long, delta: Long, abs_delta: Long,
-    risk_checks_passed: Bool, selected_proposal_matches: Bool, applies_this_run: Long, minutes_since_last_change: Long
+    risk_checks_passed: Bool, selected_proposal_matches: Bool, applies_this_run: Long, minutes_since_last_change: Long,
+    criticality: String, critical_harm_predicted: Bool
   }
 };
 

@@ -19,3 +19,6 @@ Reply with JSON only, no other text:
 {"assessments": [{"proposal_id": "PROP-availability-1", "risk": "low", "recommendation": "approval_required",
                   "reasons": ["...", "..."]}],
  "notes": "<= 40 words"}
+
+A cell whose criticality is hospital, emergency or military must never end up with weaker coverage. Rate any proposal that weakens one,
+or that adds interference next to a critical cell that already has a weak edge SINR, as high risk.

@@ -70,7 +70,8 @@ def agent(name: str) -> str:
 def apply_ctx(parameter="tx_power_dbm", old=43, new=44, minutes=9999) -> dict:
     return {"proposal_id": "PROP-coverage-1", "parameter": parameter, "old_value": old, "new_value": new,
             "delta": new - old, "abs_delta": abs(new - old), "risk_checks_passed": True, "selected_proposal_matches": True,
-            "applies_this_run": 0, "minutes_since_last_change": minutes}
+            "applies_this_run": 0, "minutes_since_last_change": minutes,
+            "criticality": "none", "critical_harm_predicted": False}
 
 
 def apply(cell="C", principal="orchestrator", **ctx):

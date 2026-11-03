@@ -4,7 +4,8 @@ the protected cell, recent changes, evidence against the snapshot, a re-run of e
 neighbours. The Risk critic then assessed each one.
 
 Choose the ONE proposal that best fixes the alert, only from the eligible list.
-Prefer, in this order: the fix that addresses the cause the alert and its network events point to, the fix more
+Cells whose criticality is hospital, emergency or military (in the snapshot) are protected: a fix that protects or restores them comes first,
+and code refuses any change that weakens one. Prefer, in this order: the fix that addresses the cause the alert and its network events point to, the fix more
 specialists found on their own, lower risk, fewer phones left without service, the smaller change.
 Do not pick a fix for a different, older issue just because more specialists mention that cell. You never change the network yourself: code applies your pick only if Cedar's policy allows it, measures the next window and undoes the change if it made things worse.
 

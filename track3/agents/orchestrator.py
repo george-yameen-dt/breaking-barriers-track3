@@ -18,6 +18,7 @@ from pathlib import Path
 
 import dt_tools
 import risk_checks
+from adapters.criticality import criticality_of
 from agents.governance import NETWORK, AgentFailed, run_agent
 from agents.risk import run_critic
 from agents.specialist import MODELS as SPECIALIST_MODELS
@@ -111,13 +112,15 @@ def _float(v) -> float:
 
 
 def apply_context(net, cell_id: str, parameter: str, value: int, risk_checks_passed: bool, applies_this_run: int,
-                  minutes=None, proposal_id: str = "", selected_proposal_matches: bool = True) -> dict:
+                  minutes=None, proposal_id: str = "", selected_proposal_matches: bool = True,
+                  critical_harm_predicted: bool = False) -> dict:
     """Trusted Cedar context for apply_cell_configuration. None of it comes from a model."""
     current = net.config.get(cell_id, {}).get(parameter)
     old = int(current) if isinstance(current, int) else -1
     return {"proposal_id": proposal_id, "parameter": parameter, "old_value": old, "new_value": int(value),
             "delta": int(value) - old, "abs_delta": abs(int(value) - old), "risk_checks_passed": bool(risk_checks_passed),
             "selected_proposal_matches": bool(selected_proposal_matches), "applies_this_run": int(applies_this_run),
+            "criticality": criticality_of(cell_id), "critical_harm_predicted": bool(critical_harm_predicted),
             "minutes_since_last_change": risk_checks.minutes_since_agent_change(net.ledger, cell_id) if minutes is None else minutes}
 
 
@@ -276,6 +279,18 @@ def grade(run, chosen: dict, say) -> dict:
     return {"rules": rule_ok, "judge": verdict}
 
 
+CRITICAL_QOS_DROP = 5.0  # a critical cell whose QoS score falls by more than this after a change makes the change "worse"
+
+
+def critical_cells_hurt(before: dict, after: dict) -> list:
+    """Critical cells whose QoS score fell by more than CRITICAL_QOS_DROP between two snapshots."""
+    was = {c["cell_id"]: c for c in before["cells"]}
+    return [c["cell_id"] for c in after["cells"]
+            if c.get("criticality", "none") != "none" and c.get("qos_score") is not None
+            and (was.get(c["cell_id"]) or {}).get("qos_score") is not None
+            and was[c["cell_id"]]["qos_score"] - c["qos_score"] > CRITICAL_QOS_DROP]
+
+
 VERIFY_MARGIN = 0.05  # phones without service: more than this many above the level before the change is "worse"
 
 
@@ -285,7 +300,7 @@ def apply_and_verify(run, chosen: dict, ctx: dict, predicted: str, say) -> str:
     cp, net = run.cp, run.net
     cell_id, parameter, old, new = chosen["cell_id"], chosen["parameter"], ctx["old_value"], ctx["new_value"]
     tag = f"trace_id={cp.trace_id} run_id={cp.run_id} agent={chosen['agent']}"
-    before = net.snapshot["network"]["phones_dropped"]
+    before, snap_before = net.snapshot["network"]["phones_dropped"], net.snapshot
     reply = net.apply(cell_id, parameter, new, reason=f"{tag} action={chosen['proposal_id']}")
     cp.record("applied", who=ORCHESTRATOR, proposal_id=chosen["proposal_id"], cell_id=cell_id,
               parameter=parameter, old_value=old, new_value=new, network=net.source, reply=reply)
@@ -294,11 +309,12 @@ def apply_and_verify(run, chosen: dict, ctx: dict, predicted: str, say) -> str:
         return f"allowed, but the network refused {cell_id} {parameter} {old} -> {new}"
     snap = net.measure()
     after = snap["network"]["phones_dropped"]
-    status = "VERIFY_FAILED" if after > before + VERIFY_MARGIN else "VERIFIED"
+    hurt = critical_cells_hurt(snap_before, snap)
+    status = "VERIFY_FAILED" if after > before + VERIFY_MARGIN or hurt else "VERIFIED"
     cp.record("kpi_snapshot", who=ORCHESTRATOR, source=net.source, snapshot_sha256=snap["snapshot_sha256"], snapshot=snap,
               purpose="verification, one window after the change")
     run.verification = {"status": status, "phones_without_service_before": before, "predicted": predicted,
-                        "measured_after": after, "window_s": snap.get("window_s")}
+                        "measured_after": after, "window_s": snap.get("window_s"), "critical_cells_hurt": hurt}
     cp.record("verification", who=ORCHESTRATOR, proposal_id=chosen["proposal_id"], cell_id=cell_id, parameter=parameter,
               **run.verification)
     say(f"    applied {cell_id} {parameter} {old} -> {new}; one window later phones without service {before} -> {after} "
@@ -345,7 +361,10 @@ def run_incident(cp, net, use_dynatrace: bool = False, pause_operator: str = "",
     for p in run.proposals:
         pid = p["proposal_id"]
         run.checks[pid] = risk_checks.check(p, run.evidence[pid], snap, net.layout, net.config, net.ledger,
-                                            run.proposals, run.reports, simulate=net.simulate)
+                                            run.proposals, run.reports, simulate=net.simulate,
+                                            criticality=criticality_of(p["cell_id"]),
+                                            critical_harm=risk_checks.critical_harm(net, p["cell_id"], p["parameter"], p["proposed_value"])
+                                            if isinstance(p["proposed_value"], int) else False)
         cp.record("risk_checks", who="code", proposal_id=pid, risk=run.checks[pid]["risk"],
                   recommendation=run.checks[pid]["recommendation"], failed=run.checks[pid]["failed"],
                   checks=run.checks[pid]["checks"], cross_agent=run.checks[pid]["cross_agent"],
@@ -378,7 +397,8 @@ def run_incident(cp, net, use_dynatrace: bool = False, pause_operator: str = "",
               {"proposal_id": pid, "risk_checks_passed": check["recommendation"] == "approval_required",
                "critic_agrees": assessment["recommendation"] == "approval_required", "risk": assessment["risk"]})
     ctx = apply_context(net, chosen["cell_id"], chosen["parameter"], chosen["proposed_value"],
-                        risk_checks_passed=check["recommendation"] == "approval_required", applies_this_run=0, proposal_id=pid)
+                        risk_checks_passed=check["recommendation"] == "approval_required", applies_this_run=0, proposal_id=pid,
+                        critical_harm_predicted=not check["checks"]["critical_neighbour_ok"])
     d = cp.decide(f'Agent::"{ORCHESTRATOR}"', "apply_cell_configuration", f'Cell::"{chosen["cell_id"]}"', ctx)
     if d["decision"] == "Allow":
         hands = getattr(net, "can_apply", False)  # the twin takes changes; the replay network does not
@@ -395,7 +415,8 @@ def run_incident(cp, net, use_dynatrace: bool = False, pause_operator: str = "",
                 f"service {predicted}. Nothing was changed: the Gateway write path is the next step.")
             outcome = f"ready to apply {chosen['proposal_id']} ({chosen['cell_id']} {chosen['parameter']} {ctx['old_value']} -> {ctx['new_value']})"
         again = apply_context(net, chosen["cell_id"], chosen["parameter"], chosen["proposed_value"],
-                              risk_checks_passed=True, applies_this_run=1, minutes=0, proposal_id=pid)
+                              risk_checks_passed=True, applies_this_run=1, minutes=0, proposal_id=pid,
+                              critical_harm_predicted=not check["checks"]["critical_neighbour_ok"])
         d2 = cp.decide(f'Agent::"{ORCHESTRATOR}"', "apply_cell_configuration", f'Cell::"{chosen["cell_id"]}"', again)
         cp.record("stabilization_probe", who=ORCHESTRATOR, cell_id=chosen["cell_id"], decision=d2["decision"],
                   policies=d2["policies"], note="the same cell again right after this change")

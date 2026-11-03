@@ -1,0 +1,5 @@
+{
+  "_note": "Synthetic labels for the demo: Viavi has no notion of a critical cell. Keys are Viavi cell names.",
+  "S2/B3/C1": {"class": "hospital", "name": "Regional hospital campus (synthetic)"},
+  "S4/B3/C1": {"class": "emergency", "name": "Emergency dispatch centre (synthetic)"}
+}

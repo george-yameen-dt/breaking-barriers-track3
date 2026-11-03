@@ -17,6 +17,7 @@ import json
 import math
 from pathlib import Path
 
+from adapters.criticality import criticality_of
 from contracts import sha256_of
 
 SCENARIOS = Path(__file__).resolve().parent.parent / "scenarios" / "twin"
@@ -74,7 +75,7 @@ def snapshot(window: dict, config: dict, phones_active: float, snapshot_id: str 
         on = (k.get("power") if k.get("power") is not None else -999) > -900 and ues > 0
         frac = uncovered_fraction(k.get("rsrp_mean"), k.get("rsrp_p10"))
         cells.append({
-            "cell_id": c, "enabled": int(on), "classification": cfg["classification"],
+            "cell_id": c, "enabled": int(on), "classification": cfg["classification"], "criticality": criticality_of(c),
             "tx_power_dbm": int(cfg["tx_power_dbm"]), "tilt_deg": int(cfg["tilt_deg"]),
             "maintenance_window": int(cfg["maintenance_window"]),
             "active_users": round(ues, 1),

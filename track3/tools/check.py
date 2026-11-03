@@ -102,7 +102,8 @@ def promote_denied(recs: list) -> tuple:
 # ---- the five-agent swarm (swarm.py) --------------------------------------------------------------------------------
 def swarm_deny(recs: list) -> tuple:
     hit = [r for r in recs if r["kind"] == "deny_probe" and r.get("decision") == "Deny"
-           and any(p in r.get("policies", []) for p in ("power-range", "tilt-range", "protected-cell"))]
+           and any(p in r.get("policies", []) for p in ("power-range", "tilt-range", "protected-cell", "critical-no-power-cut",
+                                                    "critical-no-tilt-up", "critical-power-step-4db", "critical-neighbour-no-harm"))]
     return bool(hit), (f"seq {hit[0]['seq']}: {hit[0]['cell_id']} {hit[0]['parameter']} -> {hit[0]['new_value']} denied by "
                        f"{', '.join(hit[0]['policies'])}" if hit else "no change denied by a range or protected-cell rule")
 

@@ -97,9 +97,26 @@ when { context.parameter == "tx_power_dbm" && (context.new_value > 46 || context
 forbid (principal, action == Action::"apply_cell_configuration", resource)
 when { context.parameter == "tilt_deg" && (context.new_value > 10 || context.new_value < 4) };
 
-// Never: an agent change to cell A, which serves emergency services.
-@id("protected-cell")
-forbid (principal, action in [Action::"apply_cell_configuration", Action::"revert_cell_configuration"], resource == Cell::"A");
+// Never: weaken a critical cell (a hospital, an emergency dispatch centre, military). The registry is adapters/criticality.py;
+// the context says which class the cell is in, and "none" for every ordinary cell. A revert is not an apply, so undoing a
+// failed change on a critical cell stays allowed.
+@id("critical-no-power-cut")
+forbid (principal, action == Action::"apply_cell_configuration", resource)
+when { context.criticality != "none" && context.parameter == "tx_power_dbm" && context.delta < 0 };
+
+@id("critical-no-tilt-up")
+forbid (principal, action == Action::"apply_cell_configuration", resource)
+when { context.criticality != "none" && context.parameter == "tilt_deg" && context.delta > 0 };
+
+// A critical cell may gain power, but in a smaller step than an ordinary cell.
+@id("critical-power-step-4db")
+forbid (principal, action == Action::"apply_cell_configuration", resource)
+when { context.criticality != "none" && context.parameter == "tx_power_dbm" && context.delta > 4 };
+
+// Never: a change the checks predict will hurt a critical cell somewhere else in the network.
+@id("critical-neighbour-no-harm")
+forbid (principal, action == Action::"apply_cell_configuration", resource)
+when { context.critical_harm_predicted };
 
 // Never: a second agent change to a cell within 15 minutes of the last one. Operator fault injections don't count.
 @id("stabilization-15m")
