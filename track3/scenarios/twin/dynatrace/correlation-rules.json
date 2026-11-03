@@ -1,0 +1,10 @@
+{
+  "displayName": "Viavi cell anomalies per network",
+  "enabled": true,
+  "matchingCondition": "dt.alert_group == \"viavi-twin\"",
+  "groupingFields": [
+    "twin.network_name"
+  ],
+  "timeWindow": "5m",
+  "correlationNamespace": "viavi-twin"
+}

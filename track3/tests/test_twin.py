@@ -207,7 +207,6 @@ def test_open_twin_recorded():
 
 
 # ---- the Dynatrace problem card (prepared; nothing is sent) -----------------------------------------
-DETECTOR = json.loads((SCENARIOS / "dynatrace" / "detector.json").read_text())
 
 
 def test_dynatrace_records_from_the_incident_snapshot():
@@ -253,17 +252,6 @@ def test_dry_run_writes_records_and_sends_nothing():
     change = next(r for r in lines if r["twin.kind"] == "change")
     assert (change["twin.cell"], change["twin.new_value"], change["twin.accepted"]) == ("S4", 44, 1)
 
-
-def test_detector_fires_only_on_the_outage_window():
-    query = DETECTOR["analyzer"]["input"][0]["value"]
-    assert 'service.name == "viavi-twin"' in query and DETECTOR["analyzer"]["name"].endswith("RecordAnomalyDetectionAnalyzer")
-    threshold = float(re.search(r"phones > (\d+(?:\.\d+)?)", query).group(1))
-    data = json.loads((SCENARIOS / SPEC["recording"]).read_text())
-    cfg = {c: {"enabled": 1, "tx_power_dbm": 40, "tilt_deg": 6, "classification": "production", "maintenance_window": 0}
-           for c in ("S1", "S2", "S3", "S4")}
-    firing = [tuple(w["t"]) for w in data["windows"]
-              if twin_snapshot(w, cfg, 39.0)["network"]["phones_dropped"] > threshold]
-    assert firing == [(300, 360)], firing
 
 
 # ---- the line to the twin (no RSG: a fake MCP call) -----------------------------------------------

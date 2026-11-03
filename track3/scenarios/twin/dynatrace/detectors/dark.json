@@ -1,0 +1,79 @@
+{
+  "title": "Viavi twin: Cell dark",
+  "description": "Static-threshold anomaly detector on the cell metric log.viavi_twin.enabled (extracted from the twin's records by the gy-viavi-twin pipeline), one series per cell. Fires when the value is below 1 in 2 of the last 3 minutes. Breaking Barriers Track 3.",
+  "enabled": true,
+  "source": "dtctl",
+  "analyzer": {
+    "name": "dt.statistics.ui.anomaly_detection.StaticThresholdAnomalyDetectionAnalyzer",
+    "input": [
+      {
+        "key": "query.expression",
+        "value": "timeseries x = avg(log.viavi_twin.enabled), by: {dt.smartscape_source.id, twin.cell_full, twin.criticality, twin.network_name}, interval: 1m"
+      },
+      {
+        "key": "alertOnMissingData",
+        "value": "false"
+      },
+      {
+        "key": "violatingSamples",
+        "value": "2"
+      },
+      {
+        "key": "threshold",
+        "value": "1"
+      },
+      {
+        "key": "dealertingSamples",
+        "value": "3"
+      },
+      {
+        "key": "slidingWindow",
+        "value": "3"
+      },
+      {
+        "key": "alertCondition",
+        "value": "BELOW"
+      }
+    ]
+  },
+  "eventTemplate": {
+    "properties": [
+      {
+        "key": "event.type",
+        "value": "AVAILABILITY_EVENT"
+      },
+      {
+        "key": "event.name",
+        "value": "Cell dark on the Viavi twin"
+      },
+      {
+        "key": "event.description",
+        "value": "{dims:twin.cell_full} (criticality {dims:twin.criticality}) stopped transmitting: its phones lost service and the neighbours must cover the gap."
+      },
+      {
+        "key": "dt.smartscape_source.id",
+        "value": "{dims:dt.smartscape_source.id}"
+      },
+      {
+        "key": "twin.cell_full",
+        "value": "{dims:twin.cell_full}"
+      },
+      {
+        "key": "twin.criticality",
+        "value": "{dims:twin.criticality}"
+      },
+      {
+        "key": "twin.network_name",
+        "value": "{dims:twin.network_name}"
+      },
+      {
+        "key": "dt.alert_group",
+        "value": "viavi-twin"
+      },
+      {
+        "key": "dt.davis.is_rootcause_relevant",
+        "value": "true"
+      }
+    ]
+  }
+}
