@@ -5,9 +5,12 @@ each tower and the network as logs (service.name viavi-twin, with twin.phase and
 events. No agents: this is the operator's test run. The problem opens on Tower S3 a minute or two after the fault.
 
     VIAVI_RSG_URL=https://<rsg>/mcp python scenarios/twin/run8.py [--scenario team04-track3-4cell-powercut] [--minutes 8]
+        [--link ssm|local]   (local: on the EC2 itself; see README.md for the operator's viavi-run)
+        [--config-version V] (stamped as twin.config_version on every record, so two runs compare)
 
-The twin has one run slot for the whole team: ping before running. The start refuses if another run is going
-(never force), and the run is always stopped at the end. Windows and events also go to dev-runs/<run_id>/twin-8min.jsonl.
+The twin has one run slot for the whole team: the run checks it first and refuses if another run is going (never
+force, never stops it), and its own run is always stopped at the end. No heartbeat: exactly one network record and one
+per tower each minute. Windows and events also go to dev-runs/<run_id>/twin-8min.jsonl.
 """
 
 import argparse
@@ -22,7 +25,7 @@ HERE = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(HERE))
 from adapters.twin import CELLS, PLANNED, REPORTS_PER_WINDOW, WINDOW_S, short, snapshot  # noqa: E402
 from adapters.twin_dt import NETWORK, NETWORK_NAME, SERVICE, DynatraceLogs  # noqa: E402
-from adapters.twin_link import TwinLink  # noqa: E402
+from adapters.twin_link import LocalLink, TwinLink  # noqa: E402
 
 FAULT_AT = 180
 
@@ -32,17 +35,27 @@ def main() -> None:
     ap.add_argument("--scenario", default="team04-track3-4cell-powercut")
     ap.add_argument("--minutes", type=int, default=8)
     ap.add_argument("--dt", choices=["send", "dry-run"], default="send")
+    ap.add_argument("--link", choices=["ssm", "local"], default="ssm",
+                    help="ssm: from a laptop through the EC2; local: on the EC2 itself, calling the RSG directly")
+    ap.add_argument("--config-version", default="baseline",
+                    help="the cell config this run tests (baseline: the scenario as saved, no agent change)")
     a = ap.parse_args()
 
     run_id = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M") + "-twin-8min"
     trace_id = uuid.uuid4().hex
     out = HERE / "dev-runs" / run_id
     out.mkdir(parents=True, exist_ok=True)
-    dt = DynatraceLogs(a.dt, run_id, trace_id, dry_file=out / "dynatrace-dry-run.jsonl")
+    dt = DynatraceLogs(a.dt, run_id, trace_id, dry_file=out / "dynatrace-dry-run.jsonl", heartbeat=False)
     config = {c: {**PLANNED, "classification": "production", "maintenance_window": 0} for c in CELLS}
-    link = TwinLink()
+    link = LocalLink() if a.link == "local" else TwinLink()
+    slot = link.run({"op": "slot"})
+    if not slot["free"]:  # someone else's run: leave it alone (never force, never stop it)
+        s = slot["status"]
+        raise SystemExit(f"the twin's run slot is busy: {s.get('test_id')} · {s.get('status')} · sim_time "
+                         f"{s.get('sim_time')} · not starting {a.scenario}")
     test_id = link.run({"op": "start", "scenario": a.scenario})["test_id"]
-    print(f"run {run_id} · trace {trace_id} · twin {test_id} · scenario {a.scenario}", flush=True)
+    print(f"run {run_id} · trace {trace_id} · twin {test_id} · scenario {a.scenario} · config {a.config_version}",
+          flush=True)
     first, phones_active, seen = None, None, set()
     try:
         for m in range(1, a.minutes + 1):
@@ -52,7 +65,8 @@ def main() -> None:
             phones_active = phones_active or round(float(w["network"]["ue_samples"]) / REPORTS_PER_WINDOW, 1)
             phase = "healthy" if m * WINDOW_S <= FAULT_AT else "fault"
             snap = snapshot(w, config, phones_active, scenario=a.scenario)
-            extra = {"twin.phase": phase, "twin.minute": m, "twin.test_id": test_id, "twin.scenario": a.scenario}
+            extra = {"twin.phase": phase, "twin.minute": m, "twin.test_id": test_id, "twin.scenario": a.scenario,
+                     "twin.config_version": a.config_version}
             dt.snapshot(snap, "live", extra=extra)
             events = [e for e in link.run({"op": "events", "test_id": test_id, "first": first, "until": m * WINDOW_S})
                       if (e["time"], e["event_type"], e["cell"]) not in seen]

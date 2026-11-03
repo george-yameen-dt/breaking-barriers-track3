@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# The operator's 8-minute Viavi twin test, on the team04 EC2 (deploy-ec2.sh installs it as ~/team04-track3/viavi-run).
+# Calls the RSG directly from the box (no SSM) and sends one network + four tower records a minute to Dynatrace.
+#
+#   ssh hackathon-ec2 ~/team04-track3/viavi-run [--scenario NAME] [--config-version V] [--minutes 8] [--dt dry-run]
+#
+# Needs ~/.config/team04/dt.env (mode 600) with DT_PLATFORM_TOKEN=... and VIAVI_RSG_URL=https://<rsg>/mcp.
+set -euo pipefail
+ROOT="${TEAM04_HOME:-$HOME/team04-track3}"
+ENV_FILE="${TEAM04_ENV:-$HOME/.config/team04/dt.env}"
+set -a
+# shellcheck disable=SC1090
+. "$ENV_FILE"
+set +a
+: "${DT_PLATFORM_TOKEN:?is not set in $ENV_FILE}" "${VIAVI_RSG_URL:?is not set in $ENV_FILE}"
+cd "$ROOT/track3"
+exec "$ROOT/.venv/bin/python" -u scenarios/twin/run8.py --link local --dt send "$@"

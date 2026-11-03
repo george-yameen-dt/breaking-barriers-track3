@@ -2,7 +2,8 @@
 
 Off unless a run asks for it (swarm.py --dt):
 - dry-run: the records go to a local JSON-lines file; nothing is sent.
-- send: they go to the sprint tenant's log ingest (yqs73977) with DT_PLATFORM_TOKEN from ~/.bindplane/.env.
+- send: they go to the sprint tenant's log ingest (yqs73977) with DT_PLATFORM_TOKEN from the environment, else from
+  ~/.bindplane/.env. The token needs the storage:logs:write scope.
 
 With more than ALERT_PHONES phones without service, the records carry twin.alert: "tower_down" on each dark tower, or
 "phones_without_service" on the network record when no tower is dark. The OpenPipeline pipeline
@@ -12,6 +13,7 @@ re-sends the newest records every 30 s: Dynatrace keeps seeing the outage until 
 """
 
 import json
+import os
 import threading
 import urllib.request
 from datetime import datetime, timedelta, timezone
@@ -26,10 +28,13 @@ HEARTBEAT_S = 30
 
 
 def _token() -> str:
-    for line in ENV_FILE.read_text().splitlines():
+    """DT_PLATFORM_TOKEN from the environment (the EC2's viavi-run sources it), else from ENV_FILE (the laptop)."""
+    if os.environ.get("DT_PLATFORM_TOKEN", "").strip():
+        return os.environ["DT_PLATFORM_TOKEN"].strip().strip("\"'")
+    for line in (ENV_FILE.read_text().splitlines() if ENV_FILE.exists() else []):
         if line.startswith("DT_PLATFORM_TOKEN="):
             return line.split("=", 1)[1].strip().strip("\"'")
-    raise SystemExit(f"DT_PLATFORM_TOKEN is not in {ENV_FILE}")
+    raise SystemExit(f"DT_PLATFORM_TOKEN is not in the environment or {ENV_FILE}")
 
 
 def snapshot_records(snap: dict, run_id: str, trace_id: str, source: str) -> list:
@@ -88,16 +93,18 @@ def change_record(run_id: str, trace_id: str, **fields) -> dict:
 
 
 class DynatraceLogs:
-    """Ships the records (or writes them to a file in dry-run), with the heartbeat. Never stops the run."""
+    """Ships the records (or writes them to a file in dry-run), with the heartbeat. Never stops the run.
+    heartbeat=False for a run that sends its own record every minute (run8.py): one point per minute, no re-sends."""
 
-    def __init__(self, mode: str, run_id: str, trace_id: str, dry_file: Path | None = None):
+    def __init__(self, mode: str, run_id: str, trace_id: str, dry_file: Path | None = None, heartbeat: bool = True):
         if mode not in ("dry-run", "send"):
             raise ValueError(f"mode must be dry-run or send, got {mode!r}")
         self.mode, self.run_id, self.trace_id, self.dry_file = mode, run_id, trace_id, dry_file
         self.token = _token() if mode == "send" else ""
         self.sent, self.errors, self.last_error, self.latest = 0, 0, "", None
         self._stop, self._lock = threading.Event(), threading.Lock()
-        threading.Thread(target=self._heartbeat, daemon=True).start()
+        if heartbeat:
+            threading.Thread(target=self._heartbeat, daemon=True).start()
 
     def snapshot(self, snap: dict, source: str, seconds_ago: float = 0, extra: dict | None = None) -> None:
         """seconds_ago dates a window from before the incident back; only the newest window feeds the heartbeat.

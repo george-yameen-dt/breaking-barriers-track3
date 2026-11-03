@@ -1,4 +1,5 @@
-"""The laptop's line to the Viavi AI RSG twin: SSM Run Command on the one host the RSG answers (Stan's EC2).
+"""The line to the Viavi AI RSG twin: SSM Run Command on the one host the RSG answers (Stan's EC2), or LocalLink
+in-process when the code runs on that host.
 
 Each call sends a short Python program to that host (AWS-RunShellScript). It calls the RSG's MCP tools (JSON-RPC
 tools/call, as viavi-proof/mcp.py does) and prints one JSON line back. Nothing is installed or left on the host.
@@ -103,28 +104,42 @@ def events(test_id, first, until):
              "description": r.get("description"), "reason": r.get("reason")} for r in rows]
 '''
 
-BOX = HELPERS + r'''
+# The host operations, shared by the SSM program (BOX) and LocalLink (in-process on the host itself).
+OPS = r'''
 
-op = json.loads(sys.argv[1])
-try:
+
+def do(op):
+    if op["op"] == "slot":  # the team's one run slot: free when nothing is current, or the current run has stopped
+        try:
+            s = call("simulation_status", test_id="current")
+        except RuntimeError as e:
+            if "no simulation is currently active" in str(e):
+                return {"free": True, "status": None}
+            raise
+        return {"free": str(s.get("status", "")).startswith("STOPPED"), "status": s}
     if op["op"] == "start":
         r = call("simulation_start", scenario=op["scenario"], offline=True, paced=True)
-        out = {"test_id": r.get("test_id"), "status": wait(r.get("test_id"), 0)}
-    elif op["op"] == "step":
+        return {"test_id": r.get("test_id"), "status": wait(r.get("test_id"), 0)}
+    if op["op"] == "step":
         call("simulation_advance", test_id=op["test_id"], run_for=f"{op['seconds']}s")
         s = wait(op["test_id"], op["to"])
         first = op.get("first") or float(s["first_timestamp"])
-        out = {"first": first, "window": window(op["test_id"], first, op["to"] - op["seconds"], op["to"])}
-    elif op["op"] == "events":
-        out = events(op["test_id"], op["first"], op["until"])
-    elif op["op"] == "command":
-        out = call("simulation_command", test_id=op["test_id"], command_type=op["command_type"], params=op["params"],
-                   reason=op["reason"])
-    elif op["op"] == "stop":
-        out = call("simulation_stop", test_id=op["test_id"])
-    else:
-        raise ValueError(f"unknown op {op['op']!r}")
-    print(json.dumps({"ok": True, "result": out}))
+        return {"first": first, "window": window(op["test_id"], first, op["to"] - op["seconds"], op["to"])}
+    if op["op"] == "events":
+        return events(op["test_id"], op["first"], op["until"])
+    if op["op"] == "command":
+        return call("simulation_command", test_id=op["test_id"], command_type=op["command_type"], params=op["params"],
+                    reason=op["reason"])
+    if op["op"] == "stop":
+        return call("simulation_stop", test_id=op["test_id"])
+    raise ValueError(f"unknown op {op['op']!r}")
+'''
+
+BOX = HELPERS + OPS + r'''
+
+op = json.loads(sys.argv[1])
+try:
+    print(json.dumps({"ok": True, "result": do(op)}))
 except Exception as e:
     print(json.dumps({"ok": False, "error": f"{type(e).__name__}: {str(e)[:500]}"}))
 '''
@@ -157,3 +172,24 @@ class TwinLink:
         if not reply.get("ok"):
             raise RuntimeError(f"twin {op['op']}: {reply.get('error')}")
         return reply["result"]
+
+
+class LocalLink:
+    """The same operations in-process, for code running on the host the RSG answers (the EC2): no SSM, no AWS."""
+
+    def __init__(self, rsg_url: str | None = None):
+        self.url = rsg_url or os.environ.get("VIAVI_RSG_URL", "")
+        if not self.url:
+            raise SystemExit("set VIAVI_RSG_URL=https://<rsg>/mcp (the twin's address) first")
+        os.environ.setdefault("VIAVI_RSG_URL", self.url)  # HELPERS reads it when loaded
+        self.ns = {"__name__": "twin_box"}
+        exec(compile(HELPERS + OPS, "<twin_box>", "exec"), self.ns)
+        self.ns["URL"] = self.url
+
+    def run(self, op: dict, timeout_s: int = 600, program: str = BOX):
+        if program is not BOX:
+            raise NotImplementedError("LocalLink runs the standard operations only; other host programs go over SSM")
+        try:
+            return self.ns["do"](op)
+        except Exception as e:  # the same error TwinLink raises, so callers see one shape
+            raise RuntimeError(f"twin {op['op']}: {type(e).__name__}: {str(e)[:500]}") from e
