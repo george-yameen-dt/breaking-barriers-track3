@@ -221,7 +221,7 @@ class Checkpoint:
 
     def decide(self, principal: str, action: str, resource: str, context: dict, attrs: dict | None = None,
                policy_set: str = "") -> dict:
-        decision, why, errors = self.evaluate(principal, action, resource, context, attrs, policy_set)
+        decision, why, errors = self.evaluate(principal, action, resource, context, attrs, policy_set=policy_set)
         # Swarm decisions keep their original record shape; a named set says which one decided.
         extra = {"policy_set": policy_set} if policy_set else {}
         return self.record("decision", principal=principal, action=action, resource=resource, context=context,

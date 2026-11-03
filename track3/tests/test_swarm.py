@@ -460,3 +460,23 @@ if __name__ == "__main__":
             print(f"FAIL  {name}  ({Path(where.filename).name}:{where.lineno})\n      {type(e).__name__}: {e}")
     print(f"\n{len(tests) - failed} passed, {failed} failed, {len(tests)} total")
     sys.exit(1 if failed else 0)
+
+
+# ---- 3b. the checkpoint path: decide() on a real SwarmCheckpoint (the cedar_decide tests above never build one) ------
+def test_swarm_checkpoint_decide_uses_swarm_policy(tmp_path, monkeypatch):
+    """A swarm run crashed with "evaluate() takes from 5 to 6 positional arguments but 7 were given": the base decide()
+    passed policy_set positionally into SwarmCheckpoint.evaluate, which takes extras as keywords only."""
+    from unittest.mock import MagicMock
+
+    import checkpoint
+    from agents.governance import SwarmCheckpoint
+
+    monkeypatch.setattr(checkpoint.boto3, "client", lambda *a, **k: MagicMock())
+    monkeypatch.setattr(SwarmCheckpoint, "_next_seq", lambda self: self.seq + 1)
+    monkeypatch.setattr(checkpoint, "ARIZE_KEY_FILE", tmp_path / "no-arize-key")
+    for key in ("ARIZE_API_KEY", "DT_TRACES_TOKEN", "DT_PLATFORM_TOKEN"):
+        monkeypatch.delenv(key, raising=False)
+    cp = SwarmCheckpoint("test-run", "0" * 31 + "1", tmp_path / "run")
+    rec = cp.decide('Agent::"orchestrator"', "handoff", 'Agent::"coverage"', {})
+    assert (rec["decision"], rec["policies"]) == ("Allow", ["handoff-graph"])
+    assert "policy_set" not in rec  # swarm decisions keep their original record shape
