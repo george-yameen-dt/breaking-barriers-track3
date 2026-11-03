@@ -13,6 +13,8 @@ import traceback
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import risk_checks as rc  # noqa: E402
@@ -353,6 +355,7 @@ def test_run8_sends_one_point_per_minute_with_the_run_fields():
         def run(self, op):
             ops.append(op["op"])
             return {"slot": {"free": True, "status": None}, "start": {"test_id": "rsg-99"}, "events": [], "stop": {},
+                    "scenario_get": BASELINE_CONFIG,
                     "step": {"first": 1.0, "window": windows[op.get("to", 60) // 60 - 1]}}[op["op"]]
     with tempfile.TemporaryDirectory() as tmp:
         run8.HERE, run8.LocalLink = Path(tmp), FakeLink
@@ -366,7 +369,7 @@ def test_run8_sends_one_point_per_minute_with_the_run_fields():
             sys.argv, twin_dt.HEARTBEAT_S = argv, heartbeat_s
         lines = [json.loads(line) for f in Path(tmp).glob("dev-runs/*/dynatrace-dry-run.jsonl")
                  for line in f.read_text().splitlines()]
-    assert ops == ["slot", "start"] + ["step", "events"] * 8 + ["stop"], ops
+    assert ops == ["slot", "scenario_get", "start"] + ["step", "events"] * 8 + ["stop"], ops
     kinds = [r["twin.kind"] for r in lines]
     assert (kinds.count("network"), kinds.count("cell"), len(lines)) == (8, 32, 40), kinds
     assert not any("twin.heartbeat" in r for r in lines)
@@ -374,6 +377,116 @@ def test_run8_sends_one_point_per_minute_with_the_run_fields():
     for r in lines:
         assert r["service.name"] == "viavi-twin" and r["twin.config_version"] == "v-test" and r["twin.test_id"] == "rsg-99"
         assert r["twin.run_id"].endswith("-twin-8min") and re.fullmatch(r"[0-9a-f]{32}", r["trace_id"])
+
+
+BASELINE_CONFIG = json.loads((SCENARIOS / "baseline-4cell-powercut.json").read_text())
+
+
+def run8_live(windows: list, events: list, first: float) -> list:
+    """run8 on a fake link that answers like the RSG: these windows, and the events up to each minute's end."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("run8", SCENARIOS / "run8.py")
+    run8 = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(run8)
+
+    class FakeLink:
+        def run(self, op):
+            if op["op"] == "events":
+                return [e for e in events if float(e["time"]) / 1000 <= first + op["until"]]
+            return {"slot": {"free": True, "status": None}, "start": {"test_id": "rsg-99"}, "stop": {},
+                    "scenario_get": BASELINE_CONFIG,
+                    "step": {"first": first, "window": windows[op.get("to", 60) // 60 - 1]}}[op["op"]]
+    with tempfile.TemporaryDirectory() as tmp:
+        run8.HERE, run8.LocalLink = Path(tmp), FakeLink
+        run8.time = SimpleNamespace(monotonic=lambda: 0.0, sleep=lambda s: None)
+        argv, sys.argv = sys.argv, ["run8.py", "--link", "local", "--dt", "dry-run", "--minutes", str(len(windows))]
+        try:
+            run8.main()
+        finally:
+            sys.argv = argv
+        return [json.loads(line) for f in Path(tmp).glob("dev-runs/*/dynatrace-dry-run.jsonl")
+                for line in f.read_text().splitlines()]
+
+
+def test_run8_reports_the_live_run_not_the_plan():
+    """Power is measured, tilt follows the twin's O1 updates, phones are counted per window and the phase comes from
+    the twin's own events: on the saved rsg-14 run, S1 goes to 44 dBm and tilt 4 at 180 s, S2's anomaly is at 120 s."""
+    rec = json.loads((SCENARIOS / "proof-rsg-14.json").read_text())
+    windows = copy.deepcopy(rec["windows"])
+    for i, w in enumerate(windows):  # the phone counts twin_link.window adds now, different every minute
+        w["network"].update(phones_in_run=39, phones_served=30 - i, phones_reporting=39 - i)
+    lines = run8_live(windows, rec["events"], SPEC["recording_first_timestamp"])
+    cell = {(r["twin.minute"], r["twin.cell"]): r for r in lines if r["twin.kind"] == "cell"}
+    net = {r["twin.minute"]: r for r in lines if r["twin.kind"] == "network"}
+    assert (cell[3, "S1"]["twin.tx_power_dbm"], cell[3, "S1"]["twin.tilt_deg"]) == (40, 6)
+    assert (cell[4, "S1"]["twin.tx_power_dbm"], cell[4, "S1"]["twin.tilt_deg"]) == (44, 4)
+    assert cell[7, "S4"]["twin.tx_power_dbm"] == 44 and cell[6, "S4"]["twin.tx_power_dbm"] == 40
+    assert "twin.tx_power_dbm" not in cell[6, "S3"] and cell[6, "S3"]["twin.state"] == "DARK"
+    assert [net[m]["twin.phones_without_service"] for m in (1, 5)] == [9, 13]
+    assert [net[m]["twin.phones_reporting"] for m in (1, 5)] == [39, 35]
+    assert [net[m]["twin.phase"] for m in range(1, 9)] == ["healthy"] * 2 + ["fault"] * 6
+    assert [net[m]["twin.o1_updates"] for m in (3, 4, 8)] == [0, 2, 3]
+
+
+def load_run8():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("run8", SCENARIOS / "run8.py")
+    run8 = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(run8)
+    return run8
+
+
+def test_timing_moves_the_fault_and_leaves_the_saved_config_alone():
+    run8 = load_run8()
+    timed = run8.with_timing(BASELINE_CONFIG, 5, 20)
+    assert timed["Anomalies"]["Power_Failures"][0]["delay"] == 300 and timed["System"]["duration"] >= 25 * 60
+    assert BASELINE_CONFIG["Anomalies"]["Power_Failures"][0]["delay"] == 180, "the saved config must not change"
+    assert {k: v for k, v in timed.items() if k not in ("Anomalies", "System")} == \
+        {k: v for k, v in BASELINE_CONFIG.items() if k not in ("Anomalies", "System")}
+
+
+def test_run8_timing_flags_start_the_timed_config_and_run_healthy_plus_fault_minutes():
+    run8 = load_run8()
+    windows = json.loads((SCENARIOS / "proof-rsg-14.json").read_text())["windows"]
+    starts, steps = [], []
+
+    class FakeLink:
+        def run(self, op):
+            if op["op"] == "start":
+                starts.append(op)
+            if op["op"] == "step":
+                steps.append(op["to"])
+            return {"slot": {"free": True, "status": None}, "start": {"test_id": "rsg-99"}, "events": [], "stop": {},
+                    "scenario_get": BASELINE_CONFIG,
+                    "step": {"first": 1.0, "window": windows[op.get("to", 60) // 60 - 1]}}[op["op"]]
+    with tempfile.TemporaryDirectory() as tmp:
+        run8.HERE, run8.LocalLink = Path(tmp), FakeLink
+        run8.time = SimpleNamespace(monotonic=lambda: 0.0, sleep=lambda s: None)
+        argv, sys.argv = sys.argv, ["run8.py", "--link", "local", "--dt", "dry-run", "--scenario", "team04-track3-live",
+                                    "--healthy-minutes", "2", "--fault-minutes", "3"]
+        try:
+            run8.main()
+        finally:
+            sys.argv = argv
+    assert steps == [60, 120, 180, 240, 300]
+    assert starts[0]["config"]["Anomalies"]["Power_Failures"][0]["delay"] == 120
+    for bad in (["--healthy-minutes", "5"], ["--fault-minutes", "20"], ["--healthy-minutes", "0", "--fault-minutes", "5"]):
+        argv, sys.argv = sys.argv, ["run8.py", "--link", "local", "--dt", "dry-run", *bad]
+        try:
+            with pytest.raises(SystemExit):
+                load_run8().main()
+        finally:
+            sys.argv = argv
+
+
+def test_tilt_and_power_from_the_scenario_and_o1_updates():
+    from adapters.twin import o1_settings, scenario_settings
+    start = scenario_settings(BASELINE_CONFIG)
+    assert start == {c: {"tx_power_dbm": 40, "tilt_deg": 6} for c in ("S1", "S2", "S3", "S4")}
+    events = json.loads((SCENARIOS / "proof-rsg-14.json").read_text())["events"]
+    now = o1_settings(events, start)
+    assert now["S1"] == {"tx_power_dbm": 44, "tilt_deg": 4} and now["S4"]["tx_power_dbm"] == 44
+    assert now["S2"] == start["S2"] and start["S1"] == {"tx_power_dbm": 40, "tilt_deg": 6}
 
 
 def test_run8_refuses_a_busy_slot_and_leaves_it_alone():

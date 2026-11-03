@@ -86,15 +86,31 @@ def window(test_id, first, t0, t1):
                             f'count("Viavi.UE.Rsrp") AS samples FROM "UEReports" {where} GROUP BY "Viavi.Cell.Name"'):
         cells.setdefault(tag(r, "Viavi.Cell.Name"), {}).update(
             {k: f(r.get(k)) for k in ("rsrp_mean", "rsrp_p10", "sinr_mean", "sinr_p10", "rsrq_mean", "samples")})
+    # phones counted one by one: a phone has service in the window when its mean RSRP is above -110 dBm, and is put
+    # under the cell it reported from
+    for v in cells.values():
+        v["no_service"] = 0
+    per_phone = (f'SELECT mean("Viavi.UE.Rsrp") AS rsrp FROM "UEReports" {where} GROUP BY "Viavi.UE.Name", '
+                 '"Viavi.Cell.Name"')
+    for r in query(test_id, f'SELECT count(rsrp) AS n FROM ({per_phone}) WHERE rsrp <= -110 GROUP BY "Viavi.Cell.Name"'):
+        cells.setdefault(tag(r, "Viavi.Cell.Name"), {})["no_service"] = int(float(r.get("n") or 0))
     net = query(test_id, f'SELECT count("Viavi.UE.Rsrp") AS n, mean("DRB.UEThpDl") AS ue_thp_dl, '
-                         f'mean("Viavi.QoS.Score") AS ue_qos FROM "UEReports" {where}')
+                         f'mean("Viavi.QoS.Score") AS ue_qos, count(distinct("Viavi.UE.id")) AS phones FROM "UEReports" {where}')
     covered = query(test_id, f'SELECT count("Viavi.UE.Rsrp") AS n FROM "UEReports" {where} AND "Viavi.UE.Rsrp" > -110')
+    served = query(test_id, f'SELECT count(rsrp) AS n FROM (SELECT mean("Viavi.UE.Rsrp") AS rsrp FROM "UEReports" {where} '
+                            'GROUP BY "Viavi.UE.Name") WHERE rsrp > -110')
+    # a phone that loses service stops reporting, so the phones in the run are every phone seen since it started
+    in_run = query(test_id, f'SELECT count(distinct("Viavi.UE.id")) AS n FROM "UEReports" WHERE time >= {round(first)}s '
+                            f'AND time < {round(first + t1)}s')
     n = float(net[0]["n"]) if net and net[0].get("n") else 0
     c = float(covered[0]["n"]) if covered and covered[0].get("n") else 0
+    count = lambda rows, key="n": int(float(rows[0][key])) if rows and rows[0].get(key) else 0  # noqa: E731
     return {"t": [t0, t1], "cells": cells,
             "network": {"ue_samples": n, "coverage_ratio_rsrp_gt_-110": round(c / n, 3) if n else None,
                         "ue_thp_dl_mean": f(net[0].get("ue_thp_dl")) if net else None,
-                        "ue_qos_mean": f(net[0].get("ue_qos")) if net else None}}
+                        "ue_qos_mean": f(net[0].get("ue_qos")) if net else None,
+                        "phones_reporting": count(net, "phones"), "phones_served": count(served),
+                        "phones_in_run": count(in_run)}}
 
 
 def events(test_id, first, until):
@@ -119,7 +135,13 @@ def do(op):
             raise
         return {"free": str(s.get("status", "")).startswith("STOPPED"), "status": s}
     if op["op"] == "start":
-        r = call("simulation_start", scenario=op["scenario"], offline=True, paced=True)
+        if op.get("config"):  # a saved scenario with the operator's timing (run8.py --healthy-minutes): validate, then start
+            check = call("scenario_validate", config=op["config"])
+            if not check.get("valid"):
+                raise ValueError(f"invalid: {str(check)[:400]}")
+            r = call("simulation_start", config=op["config"], offline=True, paced=True)
+        else:
+            r = call("simulation_start", scenario=op["scenario"], offline=True, paced=True)
         return {"test_id": r.get("test_id"), "status": wait(r.get("test_id"), 0)}
     if op["op"] == "step":
         call("simulation_advance", test_id=op["test_id"], run_for=f"{op['seconds']}s")
@@ -147,6 +169,13 @@ def do(op):
                     reason=op["reason"])
     if op["op"] == "stop":
         return call("simulation_stop", test_id=op["test_id"])
+    if op["op"] == "scenario_get":
+        return call("scenario_get", name=op["name"])["config"]
+    if op["op"] == "scenario_put":  # the operator's reset (scenarios/twin/reset.py), never an agent's: validate, then save
+        check = call("scenario_validate", config=op["config"])
+        if not check.get("valid"):
+            raise ValueError(f"invalid: {str(check)[:400]}")
+        return call("scenario_save", name=op["name"], config=op["config"], overwrite=True)
     raise ValueError(f"unknown op {op['op']!r}")
 '''
 
