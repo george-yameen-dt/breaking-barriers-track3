@@ -234,7 +234,15 @@ class AttachedTwin:
         self.link = link
         s = link.run({"op": "attach"})
         self.test_id, self.first, self.now_s = s["test_id"], float(s["first_timestamp"]), int(s["sim_time"])
-        self.windows, self.event_rows = {}, []
+        self.windows, self.event_rows, self.applied_s = {}, [], None
+
+    def window_after(self, now: int) -> tuple:
+        """The window that shows a change: the run's clock moves on while the command is sent, so a window already
+        recorded may predate it. After a command it is the first full window from the next boundary on."""
+        if self.applied_s is None:
+            return now, now + WINDOW_S
+        t0 = max(now, int(math.ceil(self.applied_s / WINDOW_S)) * WINDOW_S)
+        return t0, t0 + WINDOW_S
 
     def advance_to(self, t: int) -> None:
         if t > self.now_s:
@@ -255,8 +263,10 @@ class AttachedTwin:
         return []
 
     def command(self, t: float, command_type: str, params: dict, reason: str) -> dict:
-        return self.link.run({"op": "command", "test_id": self.test_id, "command_type": command_type,
-                              "params": params, "reason": reason})
+        reply = self.link.run({"op": "command", "test_id": self.test_id, "command_type": command_type,
+                               "params": params, "reason": reason})
+        self.applied_s = float(self.link.run({"op": "attach"})["sim_time"])  # when, on the run's own clock, it was sent
+        return reply
 
     def state(self) -> dict:
         """What this run read, as JSON: the other agents' runtimes rebuild the same snapshot from it (FrozenTwin)."""
@@ -475,7 +485,7 @@ class TwinNetwork:
 
     def measure(self) -> dict:
         """Run the twin one more window and take a new snapshot."""
-        t0, t1 = self.now, self.now + WINDOW_S
+        t0, t1 = self.twin.window_after(self.now) if hasattr(self.twin, "window_after") else (self.now, self.now + WINDOW_S)
         self.twin.advance_to(t1)
         self.now = t1
         return self._take(t0, t1)

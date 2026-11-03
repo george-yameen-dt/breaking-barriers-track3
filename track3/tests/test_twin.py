@@ -201,6 +201,32 @@ def test_the_orchestrator_has_no_approval_step():
     assert not hasattr(orch, "ask_person") and not hasattr(orch, "APPROVAL_TTL")
 
 
+class NoEffectTwin(RecordedTwin):
+    """The saved run, except that the change makes no difference to the windows after it."""
+
+    def window(self, t0, t1):
+        w = super().window(t0, t1) if t0 < 360 else super().window(300, 360)
+        return {**copy.deepcopy(w), "t": [t0, t1]}
+
+
+def test_a_change_that_does_not_help_is_undone():
+    net, cp = twin_net(NoEffectTwin), FakeCheckpoint()
+    run = SimpleNamespace(cp=cp, net=net)
+    p, ctx = chosen(net)
+    outcome = apply_and_verify(run, p, ctx, "16.0 -> 14.6", say=lambda s: None)
+    v = next(r for r in cp.records if r["kind"] == "verification")
+    assert v["status"] == "VERIFY_FAILED" and v["improved"] is False and "did not improve" in v["why"], v
+    assert "undone" in outcome and any(r["kind"] == "reverted" for r in cp.records), outcome
+
+
+def test_a_change_that_helps_is_marked_improved():
+    net, cp = twin_net(), FakeCheckpoint()
+    p, ctx = chosen(net)
+    apply_and_verify(SimpleNamespace(cp=cp, net=net), p, ctx, "16.0 -> 14.6", say=lambda s: None)
+    v = next(r for r in cp.records if r["kind"] == "verification")
+    assert v["status"] == "VERIFIED" and v["improved"] is True and v["phones_without_service_before"] > v["measured_after"]
+
+
 def test_open_twin_recorded():
     net = open_twin("recorded", SCENARIO, "test", "t")
     assert net.source == "viavi-twin (recorded)" and net.fault["deny_probe"]["value"] == 50

@@ -6,7 +6,7 @@
 4. Hands everything to the Risk critic, the first agent to see all three reports side by side.
 5. Recommends one fix (its model ranks, code guards) and probes Cedar with a change that must be denied.
 6. Asks Cedar whether the chosen change may be applied: no person is asked, the envelope in policies/swarm.cedar decides.
-7. On the Viavi twin an allowed change is applied, measured one window later and undone if it made things worse
+7. On the Viavi twin an allowed change is applied, measured in the first full window after it and undone if it did not help or made things worse
    (apply_and_verify). On the replay network the write is not built, so a replay run stops at "ready to apply".
 8. A rule grader and an independent judge from another model family grade the run.
 """
@@ -279,6 +279,7 @@ def grade(run, chosen: dict, say) -> dict:
     return {"rules": rule_ok, "judge": verdict}
 
 
+IMPROVE_MARGIN = 0.5  # a change must lower the phones without service by at least this many to count as a fix
 CRITICAL_QOS_DROP = 5.0  # a critical cell whose QoS score falls by more than this after a change makes the change "worse"
 
 
@@ -311,11 +312,16 @@ def apply_and_verify(run, chosen: dict, ctx: dict, predicted: str, say) -> str:
     snap = net.measure()
     after = snap["network"]["phones_dropped"]
     hurt = critical_cells_hurt(snap_before, snap)
-    status = "VERIFY_FAILED" if after > before + VERIFY_MARGIN or hurt else "VERIFIED"
+    improved = after <= before - IMPROVE_MARGIN
+    worse = after > before + VERIFY_MARGIN
+    status = "VERIFY_FAILED" if worse or hurt or not improved else "VERIFIED"
+    why = ("made things worse" if worse else f"hurt critical cells {hurt}" if hurt else
+           f"did not improve phones without service ({before} -> {after})" if not improved else "improved phones without service")
     cp.record("kpi_snapshot", who=ORCHESTRATOR, source=net.source, snapshot_sha256=snap["snapshot_sha256"], snapshot=snap,
               purpose="verification, one window after the change")
     run.verification = {"status": status, "phones_without_service_before": before, "predicted": predicted,
-                        "measured_after": after, "window_s": snap.get("window_s"), "critical_cells_hurt": hurt}
+                        "measured_after": after, "window_s": snap.get("window_s"), "critical_cells_hurt": hurt,
+                        "improved": improved, "why": why}
     cp.record("verification", who=ORCHESTRATOR, proposal_id=chosen["proposal_id"], cell_id=cell_id, parameter=parameter,
               **run.verification)
     say(f"    applied {cell_id} {parameter} {old} -> {new}; one window later phones without service {before} -> {after} "
@@ -328,14 +334,14 @@ def apply_and_verify(run, chosen: dict, ctx: dict, predicted: str, say) -> str:
     if d["decision"] != "Allow":
         cp.record("revert_denied", who=ORCHESTRATOR, cell_id=cell_id, parameter=parameter, policies=d["policies"])
         say(f"    undo denied by Cedar ({', '.join(d['policies'])}): a person must act")
-        return f"applied {chosen['proposal_id']}; it made things worse and the undo was denied: a person must act"
+        return f"applied {chosen['proposal_id']}; it {why} and the undo was denied: a person must act"
     reply = net.apply(cell_id, parameter, old, reason=f"{tag} action=undo {chosen['proposal_id']}")
     snap = net.measure() if reply.get("accepted") else net.snapshot
     cp.record("reverted", who=ORCHESTRATOR, cell_id=cell_id, parameter=parameter, restored_value=old, reply=reply,
               policies=d["policies"], phones_without_service_after_undo=snap["network"]["phones_dropped"])
     say(f"    undone ({', '.join(d['policies'])}): {cell_id} {parameter} back to {old}; phones without service now "
         f"{snap['network']['phones_dropped']}")
-    return f"applied {chosen['proposal_id']}; it made things worse ({before} -> {after}), so it was undone"
+    return f"applied {chosen['proposal_id']}; it {why} ({before} -> {after}), so it was undone"
 
 
 def run_incident(cp, net, use_dynatrace: bool = False, pause_operator: str = "", say=print, remote=None, alert: str = "") -> dict:

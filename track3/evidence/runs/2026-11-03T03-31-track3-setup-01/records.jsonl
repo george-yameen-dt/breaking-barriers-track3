@@ -1,0 +1,1 @@
+{"kind": "trace_export_unavailable", "missing": ["arize", "dynatrace"], "note": "no credentials for these trace destinations; the run was refused, not run untraced", "run_id": "2026-11-03T03-31-track3-setup-01", "seq": 1, "time": "2026-11-03T11:31:42.071+00:00", "trace_id": "3e489f7ea1b1433c8753d6ec6ba30375"}

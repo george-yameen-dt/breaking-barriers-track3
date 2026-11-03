@@ -20,11 +20,12 @@ class FakeLink:
     def __init__(self):
         self.rec = RecordedTwin(SCENARIOS / SPEC["recording"], SPEC["recording_first_timestamp"])
         self.ops = []
+        self.sim_time = 485.0
 
     def run(self, op, **_):
         self.ops.append(op)
         if op["op"] == "attach":
-            return {"test_id": "rsg-fake", "status": "RUNNING", "sim_time": 485.0, "first_timestamp": 1000.0}
+            return {"test_id": "rsg-fake", "status": "RUNNING", "sim_time": self.sim_time, "first_timestamp": 1000.0}
         if op["op"] == "wait_for":
             return {"sim_time": op["to"], "status": "RUNNING"}
         if op["op"] == "window":
@@ -34,6 +35,7 @@ class FakeLink:
         if op["op"] == "events":
             return []
         if op["op"] == "command":
+            self.sim_time = 500.0  # the run keeps moving while the command is sent
             return {"accepted": True, "command_type": op["command_type"]}
         raise AssertionError(f"an agent must not run {op['op']!r}")
 
@@ -55,6 +57,17 @@ def test_attached_measure_waits_for_the_next_window():
     waits = [o for o in link.ops if o["op"] == "wait_for"]
     assert waits and waits[-1]["to"] == 540 and snap["window_s"] == [480, 540]
     assert {o["op"] for o in link.ops} <= READ_AND_COMMAND
+
+
+def test_attached_measure_reads_the_first_full_window_after_the_command():
+    """The run's clock is ahead of the swarm's: the window right after the incident one may already be recorded, from
+    before the command. The window that shows the change starts at the next boundary after the command (500 s -> 540 s)."""
+    net, link = attached()
+    net.apply("S4", "tx_power_dbm", 44, reason="trace_id=x")
+    snap = net.measure()
+    assert snap["window_s"] == [540, 600], snap["window_s"]
+    assert [o for o in link.ops if o["op"] == "wait_for"][-1]["to"] == 600
+    assert [(o["t0"], o["t1"]) for o in link.ops if o["op"] == "window"][-1] == (540, 600)
 
 
 def test_attached_apply_sends_a_command():
