@@ -60,7 +60,7 @@ def cmd_run(a) -> None:
     if a.dt != "off":  # the twin's numbers and changes as Dynatrace logs, for the problem card
         from adapters.twin_dt import DynatraceLogs
         dt = DynatraceLogs(a.dt, run_id, trace_id, dry_file=DEV_RUNS / run_id / "dynatrace-dry-run.jsonl")
-    net = (open_twin(a.twin, a.twin_scenario, run_id, now_iso(), dt=dt) if a.twin else
+    net = (open_twin(a.twin, a.twin_scenario, run_id, now_iso(), dt=dt, cp=cp) if a.twin else
            ReplayNetwork(a.fault, run_id, now_iso()))
     print(f"Run {run_id} (dev run, not declared) · trace {trace_id} · network {net.source}")
     cp.record("run_start", mode="swarm", fault=net.fault["name"], fault_sha256=file_sha(net.fault_path),

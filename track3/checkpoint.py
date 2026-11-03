@@ -248,6 +248,23 @@ class Checkpoint:
                                                            "changed_by": {"S": who}, "changed_at": {"S": now_iso()}})
         return self.record("registry", model_id=model_id, status=status, changed_by=who)
 
+    # ---- tool registry (same table as the models, keys prefixed "tool:") -------------------------
+    def tool_status(self, tool: str) -> str:
+        item = self.ddb.get_item(TableName=REGISTRY_TABLE, Key={"model_id": {"S": f"tool:{tool}"}}).get("Item")
+        return item["status"]["S"] if item else "unregistered"
+
+    def register_tool(self, tool: str, status: str, who: str) -> dict:
+        self.ddb.put_item(TableName=REGISTRY_TABLE, Item={"model_id": {"S": f"tool:{tool}"}, "status": {"S": status},
+                                                           "changed_by": {"S": who}, "changed_at": {"S": now_iso()}})
+        return self.record("registry", model_id=f"tool:{tool}", status=status, changed_by=who)
+
+    def gate_tool(self, who: str, action: str, tool: str, context: dict) -> dict:
+        """One Cedar decision for a tool call, with the tool's registry status as the resource attribute. Raises Refused on a Deny."""
+        d = self.decide(who, action, f'Tool::"{tool}"', context, {"status": self.tool_status(tool)})
+        if d["decision"] != "Allow":
+            raise Refused(f"{who} may not use {tool}: {', '.join(d['policies'])}")
+        return d
+
     # ---- calls -------------------------------------------------------------------------------
     def call_model(self, agent: str, model_id: str, system: str, prompt: str, max_tokens: int = 1500) -> dict:
         """One model call with no tools (the judge), on Strands through the checkpoint:

@@ -1,0 +1,7 @@
+{
+  "_note": "The tools the agents may use. ./track3.sh setup registers each as approved; Cedar (policies/swarm.cedar) still decides each call.",
+  "dtctl": ["dtctl"],
+  "dt_mcp": ["execute-dql", "query-problems", "get-problem-by-id", "find-documents"],
+  "viavi": ["scenario_list", "scenario_get", "simulation_list", "simulation_status", "simulation_query",
+            "get_available_actions", "reference", "get_schema", "list_kpis", "list_use_cases", "simulation_command"]
+}

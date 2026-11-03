@@ -103,9 +103,13 @@ def cmd_setup(_args) -> None:
     cp.record("run_start", declared_s3_last_modified=DECLARED_S3, purpose="register models")
     for m in (AGENT_MODEL, JUDGE_MODEL):
         cp.set_model_status(m, "approved", getpass.getuser())
+    tools = {k: v for k, v in json.loads((HERE / "policies" / "tools.json").read_text()).items() if not k.startswith("_")}
+    names = [t if group == "dtctl" else f"{'dt-mcp' if group == 'dt_mcp' else group}:{t}" for group, ts in tools.items() for t in ts]
+    for t in names:
+        cp.register_tool(t, "approved", getpass.getuser())
     cp.record("run_end")
     upload_run(run_id, cp.out_dir)
-    print(f"{run_id}: both models approved")
+    print(f"{run_id}: both models and {len(names)} tools approved")
 
 
 # ---- agents on AgentCore -------------------------------------------------------------------------

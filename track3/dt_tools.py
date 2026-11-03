@@ -39,21 +39,35 @@ def parse_dql(dql: str) -> dict:
     return {"dql_verb": verb, "window_minutes": window, "data_object": data_object, "has_write": bool(_WRITES.search(text))}
 
 
+READ_VERBS = ("get", "describe", "query")
+
+
+def dtctl_read(args: list, cp, who: str = 'Agent::"orchestrator"', max_rows: int = 40) -> dict:
+    """Any read-only dtctl command (get, describe, query), through Cedar. A verb that writes, or an unregistered tool, is refused."""
+    verb = str(args[0]) if args else ""
+    cp.gate_tool(who, "dt_read", "dtctl", {"verb": verb, "has_write": bool(_WRITES.search(" ".join(map(str, args))))})
+    return _dtctl_json([*map(str, args)], label=" ".join(map(str, args)), max_rows=max_rows)
+
+
 def query(dql: str, traceparent: str = "", max_rows: int = 40) -> dict:
     """One DQL query through dtctl. --agent fixes the JSON shape (dtctl prints another shape outside AI tools);
     --max-field-chars 0 stops agent mode clipping long strings at 500 chars."""
+    return _dtctl_json(["query", dql], label=dql, max_rows=max_rows, traceparent=traceparent, key="dql")
+
+
+def _dtctl_json(args: list, label: str, max_rows: int = 40, traceparent: str = "", key: str = "command") -> dict:
     env = {**os.environ, **({"TRACEPARENT": traceparent} if traceparent else {})}
     try:
-        out = subprocess.run([*DTCTL, "query", dql, "-o", "json", "--agent", "--max-field-chars", "0"],
+        out = subprocess.run([*DTCTL, *args, "-o", "json", "--agent", "--max-field-chars", "0"],
                              capture_output=True, text=True, timeout=60, env=env)
         reply = json.loads(out.stdout or "{}")
     except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as e:
-        return {"dql": dql, "error": f"dtctl failed: {str(e)[:200]}"}
+        return {key: label, "error": f"dtctl failed: {str(e)[:200]}"}
     if not reply.get("ok"):
-        return {"dql": dql, "error": f"dtctl: {str(reply.get('error') or out.stderr or out.stdout)[:300]}"}
+        return {key: label, "error": f"dtctl: {str(reply.get('error') or out.stderr or out.stdout)[:300]}"}
     body = reply.get("result") or {}
     rows = [json.loads(line) for line in open(body["path"])] if body.get("kind") == "result-file" else body.get("records") or []
-    return {"dql": dql, "row_count": len(rows), "rows": rows[:max_rows], "result_sha256": sha256_of(rows)}
+    return {key: label, "row_count": len(rows), "rows": rows[:max_rows], "result_sha256": sha256_of(rows)}
 
 
 def _window(minutes, default: int) -> int:

@@ -18,6 +18,7 @@ import math
 from pathlib import Path
 
 from adapters.criticality import criticality_of
+from checkpoint import Refused
 from contracts import sha256_of
 
 SCENARIOS = Path(__file__).resolve().parent.parent / "scenarios" / "twin"
@@ -216,8 +217,9 @@ class TwinNetwork:
     can_apply = True
     prompt_note = PROMPT_NOTE
 
-    def __init__(self, twin, scenario_name: str, run_id: str, taken_at: str, dt=None):
+    def __init__(self, twin, scenario_name: str, run_id: str, taken_at: str, dt=None, cp=None):
         self.twin, self.run_id, self.taken_at = twin, run_id, taken_at
+        self.cp = cp  # the checkpoint: every read of the Viavi MCP and every command is a Cedar decision when it is set
         self.dt = dt  # adapters/twin_dt.DynatraceLogs: every snapshot and change also goes to Dynatrace (or a dry-run file)
         self.source = f"viavi-twin ({twin.source})"
         self.fault_path = SCENARIOS / f"{scenario_name}.json"
@@ -240,7 +242,12 @@ class TwinNetwork:
                                      scenario=self.fault["twin"]["scenario"]), twin.source, seconds_ago=t1 - a - WINDOW_S)
         self._take(t0, t1)
 
+    def _gate(self, action: str, tool: str, context: dict | None = None) -> None:
+        if self.cp is not None:
+            self.cp.gate_tool('Agent::"orchestrator"', action, tool, context or {})
+
     def _take(self, t0: int, t1: int) -> dict:
+        self._gate("viavi_read", "viavi:simulation_query")
         self.version += 1
         w = self.twin.window(t0, t1)
         self.kpis = {short(k): v for k, v in w["cells"].items()}
@@ -362,6 +369,12 @@ class TwinNetwork:
         """Send one change to the twin (the next window runs with it). Only the orchestrator calls this, after Cedar."""
         cid = short(cell_id)
         command_type, key = COMMANDS[parameter]
+        try:
+            self._gate("viavi_command", "viavi:simulation_command",
+                       {"command_type": command_type, "delay_s": 0,
+                        "reason_has_trace_id": bool(self.cp is not None and self.cp.trace_id in reason)})
+        except Refused as e:
+            return {"accepted": False, "error": f"refused by Cedar: {e}"}
         reply = self.twin.command(self.now, command_type, {"cell": full(cid), key: int(value)}, reason)
         if self.dt:
             self.dt.change(cell=cid, parameter=parameter, old_value=self.config[cid][parameter], new_value=int(value),
@@ -385,7 +398,7 @@ class TwinNetwork:
         self.twin.close()
 
 
-def open_twin(mode: str, scenario_name: str, run_id: str, taken_at: str, link=None, dt=None) -> TwinNetwork:
+def open_twin(mode: str, scenario_name: str, run_id: str, taken_at: str, link=None, dt=None, cp=None) -> TwinNetwork:
     """mode 'recorded' (the saved run, offline) or 'live' (the RSG through twin_link)."""
     spec = json.loads((SCENARIOS / f"{scenario_name}.json").read_text())["twin"]
     if mode == "recorded":
@@ -394,7 +407,7 @@ def open_twin(mode: str, scenario_name: str, run_id: str, taken_at: str, link=No
         from adapters.twin_link import TwinLink
         twin = LiveTwin(link or TwinLink(), spec["scenario"])
     try:
-        return TwinNetwork(twin, scenario_name, run_id, taken_at, dt=dt)
+        return TwinNetwork(twin, scenario_name, run_id, taken_at, dt=dt, cp=cp)
     except Exception:
         if dt:
             dt.close()

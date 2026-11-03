@@ -6,6 +6,7 @@ entity Model = { status: String };
 entity Network;
 entity Cell;
 entity Policy;
+entity Tool = { status: String };
 
 action invoke_model appliesTo { principal: Agent, resource: Model, context: {} };
 action handoff appliesTo { principal: Agent, resource: Agent, context: {} };
@@ -47,4 +48,11 @@ action revert_cell_configuration appliesTo {
 action request_governance_change appliesTo {
   principal: Agent, resource: Policy,
   context: { proposal_id: String, denied_by: Set<String> }
+};
+
+action dt_read appliesTo { principal: Agent, resource: Tool, context: { verb: String, has_write: Bool } };
+action viavi_read appliesTo { principal: Agent, resource: Tool, context: {} };
+action viavi_command appliesTo {
+  principal: Agent, resource: Tool,
+  context: { command_type: String, delay_s: Long, reason_has_trace_id: Bool }
 };

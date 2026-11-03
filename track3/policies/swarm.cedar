@@ -47,6 +47,41 @@ when {
   ["logs", "spans", "dt.davis.problems", "events"].contains(context.data_object) && !context.has_write
 };
 
+// ---- tools: registered first, then allowed by name ------------------------------------------------------------------
+// Nothing is callable until the registry says it is approved (policies/tools.json, written by ./track3.sh setup).
+@id("tools-approved-only")
+forbid (principal, action in [Action::"dt_read", Action::"viavi_read", Action::"viavi_command"], resource)
+when { resource.status != "approved" };
+
+// Dynatrace through dtctl or the Dynatrace MCP: read verbs only, nothing that writes.
+@id("dt-read-only")
+permit (principal, action == Action::"dt_read", resource)
+when { ["get", "describe", "query"].contains(context.verb) && !context.has_write };
+
+// The Viavi MCP, read side: these calls change nothing. Starting, stopping or advancing a run and every scenario write are not here.
+@id("viavi-read")
+permit (principal, action == Action::"viavi_read", resource)
+when {
+  [Tool::"viavi:scenario_list", Tool::"viavi:scenario_get", Tool::"viavi:simulation_list", Tool::"viavi:simulation_status",
+   Tool::"viavi:simulation_query", Tool::"viavi:get_available_actions", Tool::"viavi:reference", Tool::"viavi:get_schema",
+   Tool::"viavi:list_kpis", Tool::"viavi:list_use_cases"].contains(resource)
+};
+
+// The Viavi MCP, write side: only the orchestrator, only these two commands. raw, turn_off, handovers and the rest are not here.
+@id("viavi-command-allowlist")
+permit (principal == Agent::"orchestrator", action == Action::"viavi_command", resource == Tool::"viavi:simulation_command")
+when { ["tx_power", "antenna_tilt"].contains(context.command_type) };
+
+// The command's reason must carry the run's trace id, so Viavi's event log matches the audit record.
+@id("viavi-trace-id-in-reason")
+forbid (principal, action == Action::"viavi_command", resource)
+when { !context.reason_has_trace_id };
+
+// A command applies now or within a minute, never scheduled for later.
+@id("viavi-delay-short")
+forbid (principal, action == Action::"viavi_command", resource)
+when { context.delay_s > 60 };
+
 // ---- the decision tree -----------------------------------------------------------------------------------------------
 
 // Node 1, propose: each specialist may only propose changes in its own domain.
