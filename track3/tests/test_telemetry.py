@@ -5,6 +5,7 @@ stand in for Dynatrace and Arize.
 """
 
 import json
+import os
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -164,24 +165,74 @@ def test_a_declared_run_is_mirrored_to_arize_and_dynatrace(spans, fake_mirrors, 
 def test_arize_spans_carry_the_arize_project(spans, fake_mirrors, monkeypatch, tmp_path):
     monkeypatch.setenv("ARIZE_API_KEY", "arize-key")
     checkpoint.Checkpoint("arize-project", "f" * 32, tmp_path).record("run_end")
-    (arize,) = fake_mirrors
+    arize = next(f for f in fake_mirrors if f.endpoint == checkpoint.ARIZE_TRACES)
     assert {s.resource.attributes.get("openinference.project.name") for s in arize.spans} == {checkpoint.ARIZE_PROJECT}
 
 
 def test_a_platform_token_is_sent_as_bearer(spans, fake_mirrors, monkeypatch, tmp_path):
     monkeypatch.setenv("DT_TRACES_TOKEN", "dt0s16.ABC.DEF")
     checkpoint.Checkpoint("bearer", "1" * 32, tmp_path).record("run_end")
-    (dt,) = fake_mirrors
+    dt = next(f for f in fake_mirrors if f.endpoint == checkpoint.DT_TRACES)
     assert dt.headers["Authorization"] == "Bearer dt0s16.ABC.DEF"
 
 
-def test_a_dev_run_after_a_declared_run_is_not_mirrored(spans, fake_mirrors, monkeypatch, tmp_path):
+def test_dev_run_exports_to_all_destinations(spans, fake_mirrors, monkeypatch, tmp_path):
+    """Every run is traced, whether or not it was declared: both runs land in both mirrors."""
     monkeypatch.setenv("ARIZE_API_KEY", "arize-key")
+    monkeypatch.setenv("DT_TRACES_TOKEN", "dt0c01.ABC.DEF")
     checkpoint.Checkpoint("declared", "2" * 32, tmp_path / "declared").record("run_end")
-    monkeypatch.delenv("ARIZE_API_KEY")
     checkpoint.Checkpoint("dev", "3" * 32, tmp_path / "dev").record("run_end")
-    (arize,) = fake_mirrors
-    assert {s.context.trace_id for s in arize.spans} == {int("2" * 32, 16)}
+    for f in fake_mirrors:
+        assert {s.context.trace_id for s in f.spans} == {int("2" * 32, 16), int("3" * 32, 16)}, f.endpoint
+
+
+def test_service_name_is_multi_agent_swarm(monkeypatch):
+    import telemetry
+    monkeypatch.delenv("OTEL_SERVICE_NAME", raising=False)
+    assert telemetry.default_resource().attributes["service.name"] == "multi-agent-swarm"
+    monkeypatch.setenv("OTEL_SERVICE_NAME", "something-else")
+    assert telemetry.default_resource().attributes["service.name"] == "something-else"
+
+
+def test_missing_arize_key_fails_loudly(spans, fake_mirrors, monkeypatch, tmp_path):
+    monkeypatch.setattr(checkpoint, "TRACE_EXPORT_REQUIRED", True)
+    monkeypatch.setenv("DT_TRACES_TOKEN", "dt0c01.ABC.DEF")
+    with pytest.raises(checkpoint.Refused, match="arize"):
+        checkpoint.Checkpoint("no-arize", "4" * 32, tmp_path)
+    rec = [json.loads(line) for line in (tmp_path / "records.jsonl").read_text().splitlines()]
+    assert rec[-1]["kind"] == "trace_export_unavailable" and rec[-1]["missing"] == ["arize"]
+
+
+def test_missing_dynatrace_token_fails_loudly(spans, fake_mirrors, monkeypatch, tmp_path):
+    monkeypatch.setattr(checkpoint, "TRACE_EXPORT_REQUIRED", True)
+    monkeypatch.setenv("ARIZE_API_KEY", "arize-key")
+    with pytest.raises(checkpoint.Refused, match="dynatrace"):
+        checkpoint.Checkpoint("no-dt", "5" * 32, tmp_path)
+    rec = [json.loads(line) for line in (tmp_path / "records.jsonl").read_text().splitlines()]
+    assert rec[-1]["kind"] == "trace_export_unavailable" and rec[-1]["missing"] == ["dynatrace"]
+
+
+def test_cloud_handle_keeps_the_credentials_of_a_dev_run(monkeypatch):
+    from agents import cloud
+    monkeypatch.setenv("DT_TRACES_TOKEN", "dt0c01.keep")
+    monkeypatch.setenv("ARIZE_API_KEY", "keep")
+    monkeypatch.setattr(cloud, "SwarmCheckpoint", MagicMock())
+    monkeypatch.setattr(cloud, "_handle", lambda *a, **k: {})
+    cloud.handle({"mode": "swarm", "run_id": "r", "trace_id": "6" * 32, "declared": False})
+    assert os.environ["DT_TRACES_TOKEN"] == "dt0c01.keep" and os.environ["ARIZE_API_KEY"] == "keep"
+
+
+def test_the_laptop_dev_run_does_not_strip_credentials():
+    import inspect
+    import swarm
+    assert "environ.pop" not in inspect.getsource(swarm.cmd_run) and "ARIZE_KEY_FILE" not in inspect.getsource(swarm.cmd_run)
+
+
+def test_a_record_span_carries_the_agent_name(spans, offline_cp):
+    offline_cp.record("decision", who="coverage", action="propose", decision="Allow", policies=["domain-ownership"])
+    s = next(s for s in spans.get_finished_spans() if s.name.startswith("decision propose"))
+    assert s.attributes["gen_ai.agent.name"] == "coverage"
+    assert offline_cp.root.attributes["gen_ai.agent.name"] == os.environ.get("AGENT_ROLE", "orchestrator")
 
 
 # ---- the checkpoint's own bookkeeping is not traced -----------------------------------------------

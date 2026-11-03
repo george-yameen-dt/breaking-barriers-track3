@@ -10,6 +10,14 @@ TRACK3 = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(TRACK3))
 
 
+@pytest.fixture(autouse=True)
+def _tracing_credentials_optional_offline(monkeypatch):
+    """Production refuses to start a run without credentials for Dynatrace and Arize; offline tests have none.
+    The tests that exercise the refusal turn it back on."""
+    import checkpoint
+    monkeypatch.setattr(checkpoint, "TRACE_EXPORT_REQUIRED", False, raising=False)
+
+
 @pytest.fixture
 def offline_cp(tmp_path, monkeypatch):
     import checkpoint

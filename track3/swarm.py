@@ -51,9 +51,6 @@ def file_sha(p: Path) -> str:
 
 
 def cmd_run(a) -> None:
-    for k in ("DT_PLATFORM_TOKEN", "DT_TRACES_TOKEN", "ARIZE_API_KEY"):  # dev runs: no operator-view mirrors
-        os.environ.pop(k, None)
-    checkpoint.ARIZE_KEY_FILE = HERE / ".no-arize-key-for-dev-runs"
     run_id, trace_id = new_run_id(), uuid.uuid4().hex
     cp = SwarmCheckpoint(run_id, trace_id, DEV_RUNS / run_id)
     dt = None

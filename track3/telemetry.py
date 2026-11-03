@@ -3,8 +3,8 @@
 On AgentCore Runtime the agents start under `opentelemetry-instrument` (the AWS Distro for OpenTelemetry, ADOT). ADOT
 builds the global tracer provider, instruments boto3 (each Bedrock model call becomes an OpenTelemetry GenAI `chat`
 span) and exports every span to CloudWatch, where AgentCore Observability shows it. This module adds the other two
-destinations to that same provider as mirrors. A mirror exports only the traces of runs that asked for it, so dev
-runs and the runtime's own traffic stay in CloudWatch. On the laptop, without ADOT, it makes the provider itself.
+destinations to that same provider as mirrors. A mirror exports only the traces of runs (every run asks), so the
+runtime's own traffic stays in CloudWatch. On the laptop, without ADOT, it makes the provider itself.
 
 The agents run on Strands, which traces each turn, model call and tool call with OpenTelemetry GenAI attributes
 (Dynatrace and CloudWatch read those). One extra processor, Arize's StrandsAgentsToOpenInferenceProcessor, adds the
@@ -18,6 +18,7 @@ import threading
 
 # Read by Strands when it makes its tracer: latest GenAI conventions, content as span attributes (not events, which the
 # OpenInference processor removes), and tool definitions on the model spans.
+os.environ.setdefault("OTEL_SERVICE_NAME", "multi-agent-swarm")  # one service for the whole swarm; spans carry gen_ai.agent.name
 os.environ.setdefault("OTEL_SEMCONV_STABILITY_OPT_IN",
                       "gen_ai_latest_experimental,gen_ai_span_attributes_only,gen_ai_tool_definitions")
 
@@ -32,13 +33,18 @@ _MIRRORS: dict = {}  # destination name -> _RunFilter
 _CONVERTED: set = set()  # ids of the providers that already have the OpenInference processor
 
 
+def default_resource() -> Resource:
+    """The resource of a provider made here: service.name is OTEL_SERVICE_NAME, multi-agent-swarm by default."""
+    return Resource.create({"service.name": os.environ.get("OTEL_SERVICE_NAME", "multi-agent-swarm")})
+
+
 def provider() -> TracerProvider:
     """The global SDK tracer provider: ADOT's on AgentCore, otherwise one made here. The first call adds the processor
     that converts Strands spans for Arize, so it runs before every mirror added later."""
     with _LOCK:
         p = trace.get_tracer_provider()
         if not isinstance(p, TracerProvider):
-            trace.set_tracer_provider(TracerProvider(resource=Resource.create({"service.name": "track3-checkpoint"})))
+            trace.set_tracer_provider(TracerProvider(resource=default_resource()))
             p = trace.get_tracer_provider()
         if id(p) not in _CONVERTED:
             from openinference.instrumentation.strands_agents import StrandsAgentsToOpenInferenceProcessor

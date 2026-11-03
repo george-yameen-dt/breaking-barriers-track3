@@ -83,10 +83,6 @@ def _sha(p: Path) -> str:
 
 
 def handle(payload: dict) -> dict:
-    if not payload.get("declared"):  # dev runs: no operator-view mirrors; declared runs copy every record to Dynatrace
-        for k in ("DT_PLATFORM_TOKEN", "DT_TRACES_TOKEN", "ARIZE_API_KEY"):
-            os.environ.pop(k, None)
-        checkpoint.ARIZE_KEY_FILE = Path("/tmp/no-arize-key-for-dev-runs")
     mode, run_id = payload["mode"], payload["run_id"]
     role = payload.get("role", ROLE)
     cp = SwarmCheckpoint(run_id, payload["trace_id"], Path("/tmp/track3") / run_id / role, payload.get("parent_span_id", ""))

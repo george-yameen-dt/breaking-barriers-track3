@@ -4,7 +4,7 @@ For each call it: decides with Cedar, screens model input and output with
 Amazon Bedrock Guardrails, and writes an audit record with the run id and trace id to
 CloudWatch Logs (the official record), DynamoDB (for the judges' read-only live test) and a local
 JSONL file (for the offline rebuild). Dynatrace gets a copy of each record as the operator view.
-Each record is also a span in the run's trace (telemetry.py): CloudWatch always, Dynatrace and Arize for declared runs.
+Each record is also a span in the run's trace (telemetry.py): CloudWatch, Dynatrace and Arize, for every run however it was started.
 """
 
 import contextlib
@@ -43,17 +43,27 @@ ARIZE_KEY_FILE = Path.home() / ".arize_api_key_bb26"
 ARIZE_TRACES = "https://otlp.arize.com/v1/traces"
 
 
-def mirror_run(trace_id: str) -> None:
-    """Dynatrace and Arize get this run's trace when their credentials are set now (dev runs remove them first)."""
+# Production refuses to start a run that cannot export its trace to Dynatrace and Arize. Only tests turn this off.
+TRACE_EXPORT_REQUIRED = True
+
+
+def mirror_run(trace_id: str) -> list:
+    """Dynatrace and Arize get this run's trace. Returns the destinations that have no credentials now (it never skips silently)."""
+    missing = []
     key = os.environ.get("ARIZE_API_KEY") or (ARIZE_KEY_FILE.read_text().strip() if ARIZE_KEY_FILE.exists() else "")
     if key:
         telemetry.mirror("arize", trace_id, lambda: telemetry.WithResource(OTLPSpanExporter(
             endpoint=ARIZE_TRACES, headers={"space_id": ARIZE_SPACE_ID, "api_key": key}), {"openinference.project.name": ARIZE_PROJECT}),
             keep=telemetry.is_openinference)
+    else:
+        missing.append("arize")
     token = os.environ.get("DT_TRACES_TOKEN")
-    if token:  # a classic access token (dt0c01.) is sent as Api-Token, a platform token as Bearer
+    if not token:
+        missing.append("dynatrace")
+    else:  # a classic access token (dt0c01.) is sent as Api-Token, a platform token as Bearer
         auth = f"Api-Token {token}" if token.startswith("dt0c01.") else f"Bearer {token}"
         telemetry.mirror("dynatrace", trace_id, lambda: OTLPSpanExporter(endpoint=DT_TRACES, headers={"Authorization": auth}))
+    return missing
 
 
 def _root_parent(trace_id: str, parent_span_id: str) -> tuple:
@@ -96,12 +106,13 @@ class Checkpoint:
         self.logs = boto3.client("logs", region_name=REGION)
         self.ddb = boto3.client("dynamodb", region_name=REGION)
         self.runtime = boto3.client("bedrock-runtime", region_name=REGION)
-        mirror_run(trace_id)
+        missing = mirror_run(trace_id)
         self.tracer = telemetry.tracer(trace_id)
         parent_context, parent_from = _root_parent(trace_id, parent_span_id)
         self.root = self.tracer.start_span(f"track3 {run_id}", context=parent_context,
                                            attributes={"openinference.span.kind": "AGENT", "track3.run_id": run_id,
-                                                                       "track3.parent_from": parent_from})
+                                                                       "track3.parent_from": parent_from,
+                                                      "gen_ai.agent.name": os.environ.get("AGENT_ROLE", "orchestrator")})
         self._root_open = True
         # The base checkpoint holds the promotion set. SwarmCheckpoint decides network changes with swarm.cedar instead.
         self.policy_sets = {"promotion": PolicySet(PROMOTION_POLICIES)}
@@ -110,6 +121,11 @@ class Checkpoint:
                 self.logs.create_log_stream(logGroupName=LOG_GROUP, logStreamName=run_id)
         except self.logs.exceptions.ResourceAlreadyExistsException:
             pass
+        if missing and TRACE_EXPORT_REQUIRED:  # a run nobody can follow in Dynatrace and Arize does not start
+            self.record("trace_export_unavailable", missing=missing,
+                        note="no credentials for these trace destinations; the run was refused, not run untraced")
+            self.close()
+            raise Refused(f"trace export unavailable: no credentials for {', '.join(missing)}")
 
     # ---- trace -------------------------------------------------------------------------------
     @contextlib.contextmanager
@@ -182,6 +198,8 @@ class Checkpoint:
         for k in ("action", "decision", "tool", "who", "approver", "model_id", "verdict", "score", "reason"):
             if rec.get(k) not in (None, "", []):
                 attrs[f"track3.{k}"] = str(rec[k])
+        if rec.get("who"):
+            attrs["gen_ai.agent.name"] = str(rec["who"])
         if rec.get("policies"):
             attrs["track3.policies"] = ", ".join(rec["policies"])
         if rec["kind"] == "model_call":
