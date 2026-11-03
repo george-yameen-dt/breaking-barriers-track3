@@ -58,16 +58,28 @@ def _ssl_context() -> ssl.SSLContext:
         return ssl.create_default_context()
 
 
-def _rpc(url: str, token: str, session: str, body: dict) -> tuple:
+class McpError(Exception):
+    pass
+
+
+def _rpc(url: str, token: str, session: str, body: dict, stage: str) -> tuple:
+    """One JSON-RPC POST. The reply is JSON or an event stream; from a stream, the message answering this request."""
     req = urllib.request.Request(url, data=json.dumps(body).encode(), method="POST", headers={
         "Content-Type": "application/json", "Accept": "application/json, text/event-stream", "Authorization": f"Bearer {token}",
         **({"Mcp-Session-Id": session} if session else {})})
     with urllib.request.urlopen(req, timeout=60, context=_ssl_context()) as r:
-        raw, sid = r.read().decode(), r.headers.get("Mcp-Session-Id", session)
-    if "id" not in body or not raw.strip():
+        raw, sid = r.read().decode(errors="replace"), r.headers.get("Mcp-Session-Id", session)
+    if "id" not in body:
         return {}, sid
-    data = next((line[5:].strip() for line in raw.splitlines() if line.startswith("data:")), raw) if raw.lstrip().startswith(("event:", "data:")) else raw
-    return json.loads(data), sid
+    chunks = [line[5:].strip() for line in raw.splitlines() if line.startswith("data:")] or [raw.strip()]
+    for chunk in chunks:
+        try:
+            message = json.loads(chunk)
+        except ValueError:
+            continue
+        if isinstance(message, dict) and message.get("id") == body["id"]:
+            return message, sid
+    raise McpError(f"{stage}: no JSON-RPC answer in the reply, which starts: {raw[:200]!r}")
 
 
 def query(dql: str, traceparent: str = "", max_rows: int = 40) -> dict:
@@ -75,21 +87,27 @@ def query(dql: str, traceparent: str = "", max_rows: int = 40) -> dict:
     url, token = _config()
     if not (url and token):
         return {"dql": dql, "error": "Dynatrace MCP is not configured (DT_MCP_URL, DT_MCP_TOKEN)"}
+    stage = "initialize"
     try:
         _, sid = _rpc(url, token, "", {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
-            "protocolVersion": "2025-03-26", "capabilities": {}, "clientInfo": {"name": "track3-agents", "version": "1"}}})
-        _rpc(url, token, sid, {"jsonrpc": "2.0", "method": "notifications/initialized"})
+            "protocolVersion": "2025-03-26", "capabilities": {}, "clientInfo": {"name": "track3-agents", "version": "1"}}}, stage)
+        stage = "initialized"
+        _rpc(url, token, sid, {"jsonrpc": "2.0", "method": "notifications/initialized"}, stage)
+        stage = "execute-dql"
         reply, _ = _rpc(url, token, sid, {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {
-            "name": "execute-dql", "arguments": {"dqlQueryString": dql, "includeTypes": False}}})
+            "name": "execute-dql", "arguments": {"dqlQueryString": dql, "includeTypes": False}}}, stage)
         if reply.get("error"):
             return {"dql": dql, "error": f"Dynatrace MCP: {str(reply['error'])[:300]}"}
         result = reply.get("result") or {}
         text = "".join(c.get("text", "") for c in result.get("content") or [] if c.get("type") == "text")
         if result.get("isError"):
             return {"dql": dql, "error": f"Dynatrace MCP: {text[:300]}"}
-        rows = json.loads(text).get("records") or []
+        body = result.get("structuredContent") or (json.loads(text) if text.strip() else {})
+        rows = body.get("records")
+        if rows is None:
+            raise McpError(f"execute-dql: the result has no records, it starts: {(text or json.dumps(result))[:200]!r}")
     except Exception as e:  # a failed read is an answer the agent can work around
-        return {"dql": dql, "error": f"Dynatrace MCP failed: {str(e)[:200]}"}
+        return {"dql": dql, "error": f"Dynatrace MCP failed at {stage}: {str(e)[:300]}"}
     return {"dql": dql, "row_count": len(rows), "rows": rows[:max_rows], "result_sha256": sha256_of(rows)}
 
 

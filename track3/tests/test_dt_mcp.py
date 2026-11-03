@@ -9,7 +9,7 @@ import dt_tools
 
 
 class FakeMcp(BaseHTTPRequestHandler):
-    calls, sse, fail = [], False, False
+    calls, sse, fail, structured, noisy = [], False, False, False, False
 
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
@@ -19,6 +19,8 @@ class FakeMcp(BaseHTTPRequestHandler):
             self.send_response(202); self.end_headers(); return
         if body["method"] == "initialize":
             result = {"protocolVersion": "2025-03-26", "capabilities": {}, "serverInfo": {"name": "fake", "version": "1"}}
+        elif FakeMcp.structured:
+            result = {"content": [], "structuredContent": {"records": [{"display_id": "P-1"}, {"display_id": "P-2"}]}}
         elif FakeMcp.fail:
             result = {"isError": True, "content": [{"type": "text", "text": "DQL syntax error"}]}
         else:
@@ -28,6 +30,8 @@ class FakeMcp(BaseHTTPRequestHandler):
         self.send_header("Mcp-Session-Id", "s-1")
         if FakeMcp.sse:
             self.send_header("Content-Type", "text/event-stream"); self.end_headers()
+            if FakeMcp.noisy:
+                self.wfile.write(b'event: message\ndata: {"jsonrpc": "2.0", "method": "notifications/progress", "params": {}}\n\n')
             self.wfile.write(f"event: message\ndata: {payload}\n\n".encode())
         else:
             self.send_header("Content-Type", "application/json"); self.end_headers()
@@ -39,7 +43,7 @@ class FakeMcp(BaseHTTPRequestHandler):
 
 @pytest.fixture
 def mcp(monkeypatch):
-    FakeMcp.calls, FakeMcp.sse, FakeMcp.fail = [], False, False
+    FakeMcp.calls, FakeMcp.sse, FakeMcp.fail, FakeMcp.structured, FakeMcp.noisy = [], False, False, False, False
     server = HTTPServer(("127.0.0.1", 0), FakeMcp)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     monkeypatch.setenv("DT_MCP_URL", f"http://127.0.0.1:{server.server_port}/mcp")
@@ -94,3 +98,26 @@ def test_an_unreachable_endpoint_is_an_error_answer(monkeypatch):
     monkeypatch.setenv("DT_MCP_URL", "http://127.0.0.1:9/mcp")
     monkeypatch.setenv("DT_MCP_TOKEN", "t")
     assert "error" in dt_tools.query("fetch logs")
+
+
+def test_a_stream_with_a_notification_before_the_result_is_read(mcp):
+    mcp.sse, mcp.noisy = True, True
+    assert dt_tools.query("fetch logs")["row_count"] == 2
+
+
+def test_rows_in_structured_content_are_read(mcp):
+    mcp.structured = True
+    assert dt_tools.query("fetch logs")["row_count"] == 2
+
+
+def test_a_reply_that_is_not_json_names_the_stage_and_shows_its_start(monkeypatch):
+    server = HTTPServer(("127.0.0.1", 0), type("H", (BaseHTTPRequestHandler,), {
+        "do_POST": lambda s: (s.rfile.read(int(s.headers["Content-Length"])), s.send_response(200), s.send_header("Content-Type", "text/html"),
+                              s.end_headers(), s.wfile.write(b"<html>login required</html>")) and None,
+        "log_message": lambda *a: None}))
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    monkeypatch.setenv("DT_MCP_URL", f"http://127.0.0.1:{server.server_port}/mcp")
+    monkeypatch.setenv("DT_MCP_TOKEN", "t")
+    out = dt_tools.query("fetch logs")["error"]
+    server.shutdown()
+    assert "initialize" in out and "login required" in out
