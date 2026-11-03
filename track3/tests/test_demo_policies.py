@@ -5,7 +5,7 @@ from tools import demo_policies as demo
 
 def test_every_scenario_gets_the_decision_and_policy_it_claims():
     results = demo.run_all()
-    assert len(results) >= 24
+    assert len(results) >= 28
     wrong = [(r["title"], r["decision"], r["policies"], r["expect_decision"], r["expect_policy"]) for r in results if not r["ok"]]
     assert not wrong, wrong
 

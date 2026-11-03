@@ -46,6 +46,31 @@ def test_a_refused_attach_is_a_clean_refusal_not_a_crash(monkeypatch):
 
     cp = MagicMock()
     cp.run_id = "r"
+    cp.policy_pin.return_value = None  # nothing pinned yet
     monkeypatch.setattr(cloud, "network_for", refuse)
     out = cloud._handle(cp, "swarm", "orchestrator", {"fault": "x", "taken_at": "t"})
     assert out["refused"] is True and "tools-approved-only" in out["error"]
+
+
+def test_a_swarm_run_under_an_unapproved_policy_is_refused_before_it_touches_the_network(monkeypatch):
+    from unittest.mock import MagicMock
+
+    cp = MagicMock()
+    cp.run_id = "r"
+    cp.policy_pin.return_value = "sha256:" + "0" * 64  # a risk owner pinned some other file
+    monkeypatch.setattr(cloud, "network_for", lambda *a, **k: (_ for _ in ()).throw(AssertionError("the network was touched")))
+    out = cloud._handle(cp, "swarm", "orchestrator", {"fault": "x", "taken_at": "t"})
+    assert out["refused"] is True and "approved" in out["error"]
+    assert [c for c in cp.record.call_args_list if c.args and c.args[0] == "policy_pin_checked"], "the mismatch is on the record"
+
+
+def test_a_worker_runtime_does_not_check_the_pin_itself(monkeypatch):
+    """Only the orchestrator's run start checks the pin; the workers are started by it."""
+    from unittest.mock import MagicMock
+
+    cp = MagicMock()
+    cp.run_id = "r"
+    cp.policy_pin.return_value = "sha256:" + "0" * 64
+    monkeypatch.setattr(cloud, "network_for", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("past the pin check")))
+    out = cloud._handle(cp, "specialist", "capacity", {"fault": "x", "taken_at": "t"})
+    assert "past the pin check" in out["error"]

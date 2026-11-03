@@ -14,10 +14,11 @@ NO_PERMIT = "no policy permits this call"
 
 
 class PolicySet:
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, text: str | None = None):
+        """From a file, or (a candidate that is not a file yet) from text."""
         self.path = Path(path)
-        self.text = self.path.read_text()
-        self.sha256 = hashlib.sha256(self.path.read_bytes()).hexdigest()
+        self.text = self.path.read_text() if text is None else text
+        self.sha256 = hashlib.sha256(self.text.encode()).hexdigest()
         # Cedar names policies policy0, policy1... in file order; map those to our @id names.
         self.ids = re.findall(r'@id\("([^"]+)"\)', self.text)
 

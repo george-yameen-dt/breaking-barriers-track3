@@ -298,6 +298,7 @@ def test_the_orchestrator_hands_its_root_span_to_the_other_runtimes(spans, offli
 
     monkeypatch.setattr(cloud, "run_incident", fake_run_incident)
     monkeypatch.setattr(cloud.SwarmCheckpoint, "_next_seq", lambda self: self.seq + 1)
+    monkeypatch.setattr(cloud.SwarmCheckpoint, "policy_pin", lambda self, name: None)  # nothing pinned yet
     cloud.handle(_cloud_payload("swarm"))
     assert seen["parent_span_id"] == seen["root"] == seen["current"], seen
 

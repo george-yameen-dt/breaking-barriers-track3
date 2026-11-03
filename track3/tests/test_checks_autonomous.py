@@ -63,3 +63,39 @@ def test_problem_to_command_follows_one_trace_id():
 def test_new_units_registered():
     assert {"critical_safe", "problem_to_command"} <= set(check.UNITS)
     assert not {"detect", "one_problem"} & set(check.UNITS), "the Dynatrace-attested checks were taken out of scope"
+
+
+# ---- the governance units -----------------------------------------------------------------------------------
+def _gov_denied(policy, seq):
+    return rec(seq, "denied", who="x", action="activate_policy", policies=[policy])
+
+
+def test_governance_denied_needs_every_kind_of_refusal():
+    refusals = [_gov_denied(p, i) for i, p in enumerate(
+        ["agents-never-change-governance", "only-risk-owner-approves-governance", "no-change-with-failed-checks",
+         "approval-bound-to-candidate-hash", "governance-is-not-self-amending"], 1)]
+    ok, why = check.governance_denied(refusals)
+    assert ok, why
+    assert not check.governance_denied(refusals[:-1])[0], "one missing refusal fails"
+    assert not check.governance_denied([])[0]
+
+
+def test_governance_change_follows_the_approved_hash_to_the_pin():
+    sha = "sha256:" + "a" * 64
+    recs = [rec(1, "policy_change_requested", candidate_sha256=sha), rec(2, "approval_requested", candidate_sha256=sha),
+            rec(3, "approval", approved=True, approver="riley", approver_role="risk_owner", candidate_sha256=sha),
+            rec(4, "decision", action="activate_policy", decision="Allow", policies=["governance-change-needs-risk-owner-and-evidence"]),
+            rec(5, "policy_activated", sha256=sha, approver="riley")]
+    ok, why = check.governance_change(recs)
+    assert ok and "riley" in why, why
+    wrong = list(recs[:4]) + [rec(5, "policy_activated", sha256="sha256:" + "b" * 64, approver="riley")]
+    assert not check.governance_change(wrong)[0], "activating a different file than the one approved fails"
+    assert not check.governance_change(recs[:3])[0], "no activation fails"
+
+
+def test_policy_pin_unit_compares_the_loaded_and_the_pinned_policy():
+    ok = rec(2, "policy_pin_checked", loaded_sha256="sha256:aa", pinned_sha256="sha256:aa", match=True)
+    assert check.policy_pin([ok])[0]
+    assert not check.policy_pin([rec(2, "policy_pin_checked", loaded_sha256="sha256:aa", pinned_sha256="sha256:bb", match=False)])[0]
+    assert not check.policy_pin([rec(2, "policy_pin_checked", loaded_sha256="sha256:aa", pinned_sha256=None, match=None)])[0]
+    assert not check.policy_pin([])[0]

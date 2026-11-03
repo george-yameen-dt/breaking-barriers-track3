@@ -277,6 +277,16 @@ class Checkpoint:
                                                            "changed_by": {"S": who}, "changed_at": {"S": now_iso()}})
         return self.record("registry", model_id=f"tool:{tool}", status=status, changed_by=who)
 
+    def policy_pin(self, name: str) -> str | None:
+        """The sha256 of the policy a risk owner approved (activated), or None when none has been pinned yet."""
+        item = self.ddb.get_item(TableName=REGISTRY_TABLE, Key={"model_id": {"S": f"policy:{name}"}}).get("Item")
+        return item["sha256"]["S"] if item else None
+
+    def set_policy_pin(self, name: str, sha256: str, who: str) -> None:
+        self.ddb.put_item(TableName=REGISTRY_TABLE, Item={"model_id": {"S": f"policy:{name}"}, "sha256": {"S": sha256},
+                                                           "status": {"S": "approved"}, "changed_by": {"S": who},
+                                                           "changed_at": {"S": now_iso()}})
+
     def gate_tool(self, who: str, action: str, tool: str, context: dict) -> dict:
         """One Cedar decision for a tool call, with the tool's registry status as the resource attribute. Raises Refused on a Deny."""
         d = self.decide(who, action, f'Tool::"{tool}"', context, {"status": self.tool_status(tool)})

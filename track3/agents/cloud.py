@@ -16,6 +16,7 @@ from pathlib import Path
 import boto3
 from botocore.config import Config
 
+import change_control
 import checkpoint
 import telemetry
 from adapters.replay import ReplayNetwork
@@ -109,6 +110,8 @@ def network_for(cp, payload: dict, run_id: str):
 def _handle(cp, mode: str, role: str, payload: dict) -> dict:
     run_id = cp.run_id
     try:
+        if mode == "swarm":  # the orchestrator's run start: the policy loaded here must be the one a risk owner approved
+            change_control.check_policy_pin(cp, POLICIES.read_text())
         net = network_for(cp, payload, run_id)  # inside the try: a refused read of the network is a refusal, not a crash
         if mode == "swarm" and payload.get("network") == "viavi":  # the workers rebuild this network from what it has read
             payload = {**payload, "twin_state": net.twin.state()}

@@ -46,6 +46,9 @@ def main() -> int:
         if decl.get("promotion_policies_sha256") and sha(ROOT / "policies" / "promotion.cedar") != decl["promotion_policies_sha256"]:
             print(f"{run_id}: promotion policies changed since it was declared")
             bad += 1
+        if decl.get("governance_policies_sha256") and sha(ROOT / "policies" / "governance.cedar") != decl["governance_policies_sha256"]:
+            print(f"{run_id}: governance policies changed since it was declared")
+            bad += 1
         recs = load(records)
         units = [u for u in decl["units"] if u in UNITS] + (["judge"] if "judge" in decl.get("target", {}) else [])
         results[run_id] = {}

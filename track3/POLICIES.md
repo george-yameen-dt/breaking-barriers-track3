@@ -10,7 +10,7 @@ Three layers, three files, 36 rules in all:
 | 2. The rules | `policies/governance.cedar` (6 rules) | Who may change those rules? | a **risk owner**, for one exact file |
 | 3. The agents | `policies/promotion.cedar` (6 rules) | Who may change the agents themselves? | an **AI engineer**, with evidence |
 
-**See it run, with no setup:** `python3 tools/demo_policies.py` (27 real decisions against the real files; add `--act 1|2|3` for one layer, `--step` to pause between scenarios). A test makes sure everything below is true.
+**See it run, with no setup:** `python3 tools/demo_policies.py` (28 real decisions against the real files; add `--act 1|2|3` for one layer, `--step` to pause between scenarios). A test makes sure everything below is true.
 
 Cedar's rule of thumb: nothing is allowed unless a `permit` says so, and any matching `forbid` wins. So the "permit" rules say what the swarm *can* do, and the "forbid" rules are the *never* list.
 

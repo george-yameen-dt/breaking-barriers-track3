@@ -45,6 +45,8 @@ SCENARIOS = [
      "apply_cell_configuration", S4, apply_ctx(), None, "Allow", "apply-autonomous-within-envelope"),
     (1, "Any cell to 50 dBm", "Hard ceiling: transmit power is 30-46 dBm, whatever anyone proposes.", "swarm", ORCH,
      "apply_cell_configuration", 'Cell::"S1"', apply_ctx(old=44, new=50), None, "Deny", "power-range"),
+    (1, "Emergency cell S4: +4 dB (the largest step it gets)", "A critical cell may gain power, in steps of at most +4 dB.", "swarm", ORCH,
+     "apply_cell_configuration", S4, apply_ctx(old=40, new=44, criticality="emergency"), None, "Allow", "apply-autonomous-within-envelope"),
     (1, "Emergency cell S4: +5 dB", "A critical cell may gain power, but in smaller steps (at most +4 dB).", "swarm", ORCH,
      "apply_cell_configuration", S4, apply_ctx(old=40, new=45, criticality="emergency"), None, "Deny", "critical-power-step-4db"),
     (1, "Hospital cell S2: cut power", "Never weaken a hospital, an emergency or a military cell.", "swarm", ORCH,

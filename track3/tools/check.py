@@ -202,9 +202,47 @@ def problem_to_command(recs: list) -> tuple:
                 else f"trace id {start.get('trace_id')} is not {derived}, or the Viavi command's reason does not carry it")
 
 
+# ---- the governance layer: changing the policy is the one thing that needs a person, and the swarm refuses an unapproved policy ----
+GOVERNANCE_REFUSALS = ("agents-never-change-governance", "only-risk-owner-approves-governance", "no-change-with-failed-checks",
+                       "approval-bound-to-candidate-hash", "governance-is-not-self-amending")
+
+
+def governance_denied(recs: list) -> tuple:
+    """Every way of changing the rules wrongly was refused, each by its own named rule."""
+    got = {}
+    for r in recs:
+        if r["kind"] == "denied" and r.get("action") == "activate_policy":
+            for p in r.get("policies", []):
+                got.setdefault(p, r["seq"])
+    missing = [p for p in GOVERNANCE_REFUSALS if p not in got]
+    return not missing, (", ".join(f"{p} (seq {got[p]})" for p in GOVERNANCE_REFUSALS) if not missing else f"not refused: {', '.join(missing)}")
+
+
+def governance_change(recs: list) -> tuple:
+    """A risk owner approved one exact candidate, Cedar allowed it, and that same file is what was activated and pinned."""
+    act = next((r for r in recs if r["kind"] == "policy_activated"), None)
+    if not act:
+        return False, "no policy_activated record"
+    appr = [r for r in recs if r["kind"] == "approval" and r.get("approved") and r["seq"] < act["seq"]]
+    allow = [r for r in recs if r["kind"] == "decision" and r.get("action") == "activate_policy" and r.get("decision") == "Allow"
+             and r["seq"] < act["seq"]]
+    ok = bool(appr and allow and appr[-1].get("approver_role") == "risk_owner" and appr[-1].get("candidate_sha256") == act["sha256"])
+    return ok, (f"seq {appr[-1]['seq']} {appr[-1]['approver']} (risk_owner) approved {act['sha256'][7:19]} -> seq {allow[-1]['seq']} Allow -> "
+                f"seq {act['seq']} activated and pinned" if ok else "the activated file is not the one a risk owner approved, or no Allow came between")
+
+
+def policy_pin(recs: list) -> tuple:
+    """The swarm ran under exactly the policy a risk owner approved."""
+    chk = next((r for r in recs if r["kind"] == "policy_pin_checked"), None)
+    if not chk or chk.get("match") is not True:
+        return False, "no pin check that matched" if not chk else f"seq {chk['seq']}: loaded {chk.get('loaded_sha256')} is not the pinned {chk.get('pinned_sha256')}"
+    return True, f"seq {chk['seq']}: the loaded policy {chk['loaded_sha256'][7:19]} is the one a risk owner pinned"
+
+
 UNITS = {"deny": deny, "allow": allow, "pause": pause, "trace": trace, "judge": judge, "compare": compare, "adversarial": adversarial,
          "second_wall": second_wall, "promote": promote, "promote_denied": promote_denied,
          "swarm_deny": swarm_deny, "swarm_allow": swarm_allow, "swarm_pause": swarm_pause,
          "swarm_trace": swarm_trace, "swarm_stabilization": swarm_stabilization,
          "swarm_autonomous_apply": swarm_autonomous_apply, "swarm_verify": swarm_verify,
-         "critical_safe": critical_safe, "problem_to_command": problem_to_command}
+         "critical_safe": critical_safe, "governance_denied": governance_denied, "governance_change": governance_change,
+         "policy_pin": policy_pin, "problem_to_command": problem_to_command}

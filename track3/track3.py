@@ -223,10 +223,60 @@ def cmd_promote(args) -> None:
     report(run_id, [unit])
 
 
+def approve_policy_change(approve_as: str):
+    """The person's approval of one exact candidate: shown its SHA-256 and what would change, they type yes."""
+    def ask(info: dict):
+        if approve_as:
+            return approve_as, "risk_owner", True, "approved with --approve-as (unattended test, no person at the keyboard)", info["candidate_sha256"]
+        print(f"\n  A policy change wants to go live.\n    candidate  {info['candidate_sha256']}")
+        print(f"    checks     validation {'passed' if info['checks']['validation'] else 'FAILED'}, "
+              f"invariants {'passed' if info['checks']['invariants'] else 'FAILED'}")
+        for c in info["impact"] or [{"scenario": "(no decision in the demo scenarios changes)", "before": "", "after": ""}]:
+            print(f"    changes    {c['scenario']}: {c['before']} -> {c['after']}".rstrip(" ->"))
+        ok = input("  You are approving as the risk owner, for exactly this file. Type yes to approve, anything else to decline: ").strip().lower() == "yes"
+        return getpass.getuser(), "risk_owner", ok, "typed at the keyboard", info["candidate_sha256"]
+    return ask
+
+
+def cmd_policy_change(args) -> None:
+    import change_control as cc
+    candidate_path = Path(args.candidate)
+    candidate = candidate_path.read_text()
+    current = (HERE / "policies" / "swarm.cedar").read_text()
+    run_id = new_run_id("governance")
+    units = ["governance_denied", "governance_change"]
+    declare(run_id, units, {
+        "governance_denied": "five wrong ways of changing the rules (an agent; the wrong role; a safety rule removed; a file edited after "
+                             "approval; the governance rules themselves) are each refused by their own named rule in policies/governance.cedar",
+        "governance_change": "a risk owner approves one exact candidate (its SHA-256), Cedar allows it, and exactly that file is activated and pinned"},
+        extra_hashes={"governance_policies_sha256": file_sha(HERE / "policies" / "governance.cedar"),
+                      "candidate_sha256": cc.sha256_text(candidate), "current_policy_sha256": cc.sha256_text(current)})
+
+    def store(sha: str, text: str) -> None:
+        name = sha.split(":", 1)[1] + ".cedar"
+        (HERE / "policies" / "versions").mkdir(exist_ok=True)
+        (HERE / "policies" / "versions" / name).write_text(text)
+        boto3.client("s3", region_name=REGION).put_object(Bucket=BUCKET, Key=f"governance/policies/{name}", Body=text.encode())
+
+    cp = Checkpoint(run_id, uuid.uuid4().hex, HERE / "evidence" / "runs" / run_id)
+    cp.record("run_start", declared_s3_last_modified=DECLARED_S3, purpose="change the swarm's policy through the governance flow",
+              candidate=str(candidate_path), commit=code_commit())
+    out = cc.demo_sequence(cp, candidate, approve_policy_change(args.approve_as), store=store, current=current)
+    for o in out:
+        print(f"  {o['kind']:17} {', '.join(o.get('policies', [])) or o.get('sha256', '')[:19]}")
+    cp.record("run_end", outcome=out[-1]["kind"])
+    upload_run(run_id, cp.out_dir)
+    print(f"run {run_id}: {out[-1]['kind']}")
+    report(run_id, units)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("setup")
+    pc = sub.add_parser("policy-change", help="change the swarm's policy through the governance flow (a risk owner approves)")
+    pc.add_argument("--candidate", default="policies/candidates/swarm-critical-step-3db.cedar")
+    pc.add_argument("--approve-as", default="", help="unattended test only: approve in this name instead of asking")
     s = sub.add_parser("signal")
     s.add_argument("--watch", type=int, default=0, help="check again every N seconds")
     s.add_argument("--dry-run", action="store_true", help="report blocking issues, change nothing")
@@ -241,7 +291,7 @@ def main() -> None:
     pr.add_argument("--approve-as", default="", help="unattended test only: approve in this name instead of asking")
     pr.add_argument("--as-agent", action="store_true", help="live deny: the agent asks to promote itself")
     a = ap.parse_args()
-    {"setup": cmd_setup, "signal": cmd_signal, "register-prompt": cmd_register_prompt, "promote": cmd_promote}[a.cmd](a)
+    {"setup": cmd_setup, "policy-change": cmd_policy_change, "signal": cmd_signal, "register-prompt": cmd_register_prompt, "promote": cmd_promote}[a.cmd](a)
 
 
 if __name__ == "__main__":
