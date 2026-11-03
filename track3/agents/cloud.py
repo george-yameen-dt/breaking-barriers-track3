@@ -142,7 +142,8 @@ def _handle(cp, mode: str, role: str, payload: dict) -> dict:
         try:
             root_span_id = format(cp.root.get_span_context().span_id, "016x")
             result = run_incident(cp, net, wait_for_person(cp), pause_operator=payload.get("operator", "operator") if payload.get("pause") else "",
-                                  remote=RemoteAgents({**payload, "parent_span_id": root_span_id}))
+                                  remote=RemoteAgents({**payload, "parent_span_id": root_span_id}),
+                                  alert=payload.get("alert_text", ""))
             outcome = result.get("outcome")
             return {"run_id": run_id, "outcome": outcome}
         finally:

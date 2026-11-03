@@ -54,9 +54,9 @@ def alert_text(snap: dict, events: list) -> str:
 class Run:
     """What one incident run shares: the checkpoint, the network adapter and everything the agents produced."""
 
-    def __init__(self, cp, net, use_dynatrace: bool):
+    def __init__(self, cp, net, use_dynatrace: bool, alert: str = ""):
         self.cp, self.net, self.use_dynatrace = cp, net, use_dynatrace
-        self.alert = alert_text(net.snapshot, net.alarms)
+        self.alert = alert or alert_text(net.snapshot, net.alarms)  # a real Davis problem if the caller passed one
         self.reports, self.proposals, self.evidence = {}, [], {}
         self.checks, self.assessments, self.critic_checked = {}, {}, set()
         # How the other agents are reached: in this process, or (agents/cloud.py) in their own AgentCore runtimes.
@@ -306,8 +306,8 @@ def grade(run, chosen: dict, approved: bool, say) -> dict:
     return {"rules": rule_ok, "judge": verdict}
 
 
-def run_incident(cp, net, approve, use_dynatrace: bool = False, pause_operator: str = "", say=print, remote=None) -> dict:
-    run = Run(cp, net, use_dynatrace)
+def run_incident(cp, net, approve, use_dynatrace: bool = False, pause_operator: str = "", say=print, remote=None, alert: str = "") -> dict:
+    run = Run(cp, net, use_dynatrace, alert)
     if remote:  # the other four agents run in their own AgentCore runtimes
         run.call_specialist, run.call_critic, run.ping = remote.specialist, remote.critic, remote.ping
     snap = net.snapshot

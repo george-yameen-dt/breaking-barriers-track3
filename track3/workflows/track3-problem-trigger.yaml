@@ -1,0 +1,36 @@
+title: Track 3 - problem triggers the swarm
+description: "A Davis problem POSTs itself to the track3-trigger Lambda (function URL), which starts the AgentCore orchestrator and returns 202. One action: HTTP request. Trigger is created inactive; turn it on when ready."
+trigger:
+  eventTrigger:
+    isActive: false
+    filterQuery: event.kind == "DAVIS_PROBLEM" AND event.status == "ACTIVE" AND matchesValue(event.status_transition, {"CREATED", "REOPENED"}) AND dt.analysis.ready == true
+    triggerConfiguration:
+      type: davis-problem
+      value:
+        analysisReady: true
+        categories: {availability: true, error: true, slowdown: true, resource: true, custom: true}
+        customFilter: ""
+        entityTags: {}
+        entityTagsMatch: all
+        maintenanceWindowTriggerBehavior: always
+        onProblemClose: false
+        problemOpenDuration: null
+        severityThreshold: null
+        triggerOn: null
+        triggerOnUpdateFields: []
+    uniqueExpression: '{{ (event()["event.id"] | default("manual-test")) }}-{{ event()["dt.davis.last_reopen_timestamp"] }}'
+tasks:
+  start_swarm:
+    name: start_swarm
+    action: dynatrace.automations:http-function
+    description: POST the problem to the Lambda that starts the orchestrator (fire and forget, answers 202).
+    position: {x: 0, "y": 1}
+    predecessors: []
+    input:
+      url: __TRIGGER_URL__
+      method: POST
+      headers:
+        Content-Type: application/json
+        x-track3-token: __TRACK3_TOKEN__
+      payload: '{"problem_id": "{{ ((event()["event.id"] | default("manual-test")) | string | replace(''"'', "''")) }}", "title": "{{ ((event()["event.name"] | default("manual run")) | string | replace(''"'', "''")) }}", "status": "{{ ((event()["event.status"] | default("")) | string | replace(''"'', "''")) }}", "category": "{{ ((event()["event.category"] | default("")) | string | replace(''"'', "''")) }}", "root_cause": "{{ ((event()["root_cause_entity_name"] | default("")) | string | replace(''"'', "''")) }}", "start": "{{ ((event()["event.start"] | default("")) | string | replace(''"'', "''")) }}"}'
+      failOnResponseCodes: 400-599
