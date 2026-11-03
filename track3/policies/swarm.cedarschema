@@ -50,7 +50,6 @@ action request_governance_change appliesTo {
   context: { proposal_id: String, denied_by: Set<String> }
 };
 
-action dt_read appliesTo { principal: Agent, resource: Tool, context: { verb: String, has_write: Bool } };
 action viavi_read appliesTo { principal: Agent, resource: Tool, context: {} };
 action viavi_command appliesTo {
   principal: Agent, resource: Tool,

@@ -39,16 +39,6 @@ def parse_dql(dql: str) -> dict:
     return {"dql_verb": verb, "window_minutes": window, "data_object": data_object, "has_write": bool(_WRITES.search(text))}
 
 
-READ_VERBS = ("get", "describe", "query")
-
-
-def dtctl_read(args: list, cp, who: str = 'Agent::"orchestrator"', max_rows: int = 40) -> dict:
-    """Any read-only dtctl command (get, describe, query), through Cedar. A verb that writes, or an unregistered tool, is refused."""
-    verb = str(args[0]) if args else ""
-    cp.gate_tool(who, "dt_read", "dtctl", {"verb": verb, "has_write": bool(_WRITES.search(" ".join(map(str, args))))})
-    return _dtctl_json([*map(str, args)], label=" ".join(map(str, args)), max_rows=max_rows)
-
-
 def query(dql: str, traceparent: str = "", max_rows: int = 40) -> dict:
     """One DQL query through dtctl. --agent fixes the JSON shape (dtctl prints another shape outside AI tools);
     --max-field-chars 0 stops agent mode clipping long strings at 500 chars."""

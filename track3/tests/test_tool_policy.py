@@ -16,7 +16,7 @@ from test_twin import twin_net
 
 TRACK3 = Path(__file__).resolve().parent.parent
 ORCH = 'Agent::"orchestrator"'
-APPROVED = {"dtctl", "viavi:simulation_command", "viavi:simulation_query", "viavi:scenario_list", "viavi:simulation_start"}
+APPROVED = {"viavi:simulation_command", "viavi:simulation_query", "viavi:scenario_list", "viavi:simulation_start"}
 TRACE = "0" * 31 + "1"
 
 
@@ -47,16 +47,12 @@ def test_denial_names_the_registry_rule(cp):
     assert (d["decision"], d["policies"]) == ("Deny", ["tools-approved-only"])
 
 
-def test_dtctl_delete_denied(cp):
-    with pytest.raises(Refused):
-        dt_tools.dtctl_read(["delete", "dashboard", "abc"], cp)
-
-
-def test_dtctl_query_allowed(cp, monkeypatch):
-    out = SimpleNamespace(stdout=json.dumps({"ok": True, "result": {"records": [{"a": 1}]}}), stderr="")
-    monkeypatch.setattr(dt_tools.subprocess, "run", lambda *a, **k: out)
-    reply = dt_tools.dtctl_read(["query", "fetch logs | limit 1"], cp)
-    assert reply["rows"] == [{"a": 1}]
+def test_there_is_no_dtctl_tool_rule_any_more():
+    """dtctl-backed agent tools are governed by dql-read-shape on dt_query; a second dtctl rule nothing called was removed."""
+    policy = (TRACK3 / "policies" / "swarm.cedar").read_text()
+    assert "dt-read-only" not in policy and 'Action::"dt_read"' not in policy
+    assert not hasattr(dt_tools, "dtctl_read")
+    assert "dql-read-shape" in policy
 
 
 def test_viavi_raw_denied(cp):
@@ -128,4 +124,4 @@ def test_apply_is_gated_by_cedar(cp):
 
 def test_no_dynatrace_mcp_tools_are_registered():
     tools = json.loads((TRACK3 / "policies" / "tools.json").read_text())
-    assert "dt_mcp" not in tools and set(k for k in tools if not k.startswith("_")) == {"dtctl", "viavi"}
+    assert "dt_mcp" not in tools and set(k for k in tools if not k.startswith("_")) == {"viavi"}

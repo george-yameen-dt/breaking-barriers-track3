@@ -50,13 +50,8 @@ when {
 // ---- tools: registered first, then allowed by name ------------------------------------------------------------------
 // Nothing is callable until the registry says it is approved (policies/tools.json, written by ./track3.sh setup).
 @id("tools-approved-only")
-forbid (principal, action in [Action::"dt_read", Action::"viavi_read", Action::"viavi_command"], resource)
+forbid (principal, action in [Action::"viavi_read", Action::"viavi_command"], resource)
 when { resource.status != "approved" };
-
-// Dynatrace through dtctl or the Dynatrace MCP: read verbs only, nothing that writes.
-@id("dt-read-only")
-permit (principal, action == Action::"dt_read", resource)
-when { ["get", "describe", "query"].contains(context.verb) && !context.has_write };
 
 // The Viavi MCP, read side: these calls change nothing. Starting, stopping or advancing a run and every scenario write are not here.
 @id("viavi-read")
