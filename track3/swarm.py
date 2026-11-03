@@ -4,6 +4,9 @@
   ./swarm.sh run --fault outage-C --approve-as X    unattended test, recorded as such
   ./swarm.sh run --fault outage-C --pause           Capacity answers once, its model is withdrawn, the run goes on without it
   ./swarm.sh run --fault power-E-high --dynatrace   the specialists may also query Dynatrace with dtctl
+  ./swarm.sh run --twin recorded                    the Viavi twin, from Stan's saved run (offline: nothing is sent)
+  ./swarm.sh run --twin live                        the Viavi twin itself, through Stan's EC2 (needs VIAVI_RSG_URL)
+  ./swarm.sh run --twin live --dt send              ... and its numbers to Dynatrace, where a detector opens the problem
 
 The five agents (agents/README.md): orchestrator, coverage, capacity, availability and the risk critic. For now they
 run in this one process (the plan's fallback: one runtime, same contracts); one AgentCore runtime per agent comes next.
@@ -27,6 +30,7 @@ from botocore.config import Config
 
 import checkpoint
 from adapters.replay import ReplayNetwork
+from adapters.twin import open_twin
 from agents.governance import POLICIES, SwarmCheckpoint
 from agents.orchestrator import run_incident
 from checkpoint import now_iso
@@ -68,12 +72,18 @@ def cmd_run(a) -> None:
     checkpoint.ARIZE_KEY_FILE = HERE / ".no-arize-key-for-dev-runs"
     run_id, trace_id = new_run_id(), uuid.uuid4().hex
     cp = SwarmCheckpoint(run_id, trace_id, DEV_RUNS / run_id)
-    net = ReplayNetwork(a.fault, run_id, now_iso())
-    print(f"Run {run_id} (dev run, not declared) · trace {trace_id}")
-    cp.record("run_start", mode="swarm", fault=a.fault, fault_sha256=file_sha(net.fault_path),
+    dt = None
+    if a.dt != "off":  # the twin's numbers and changes as Dynatrace logs, for the problem card
+        from adapters.twin_dt import DynatraceLogs
+        dt = DynatraceLogs(a.dt, run_id, trace_id, dry_file=DEV_RUNS / run_id / "dynatrace-dry-run.jsonl")
+    net = (open_twin(a.twin, a.twin_scenario, run_id, now_iso(), dt=dt) if a.twin else
+           ReplayNetwork(a.fault, run_id, now_iso()))
+    print(f"Run {run_id} (dev run, not declared) · trace {trace_id} · network {net.source}")
+    cp.record("run_start", mode="swarm", fault=net.fault["name"], fault_sha256=file_sha(net.fault_path),
               layout_sha256=file_sha(HERE / "scenarios" / "swarm-layout.json"), policies_sha256=file_sha(POLICIES),
               prompts_sha256={p.stem: file_sha(p) for p in sorted(PROMPTS.glob("*.md"))}, operator=getpass.getuser(),
-              dynatrace_tools=a.dynatrace, where="laptop: five agents in one process (dev run, not declared)")
+              dynatrace_tools=a.dynatrace, network=net.source, dynatrace_logs=a.dt,
+              where="laptop: five agents in one process (dev run, not declared)")
     try:
         result = run_incident(cp, net, approver(a.approve_as), use_dynatrace=a.dynatrace,
                               pause_operator=getpass.getuser() if a.pause else "")
@@ -81,9 +91,14 @@ def cmd_run(a) -> None:
         cp.record("run_error", error=str(e)[:500])
         result = {"outcome": f"error: {e}"}
         print(f"Run failed: {e}")
+    finally:
+        getattr(net, "close", lambda: None)()  # a live twin run is always stopped
     cp.record("run_end", outcome=result.get("outcome"))
     print(f"Outcome: {result.get('outcome')}")
     print(f"Records: {cp.local.relative_to(HERE)} ({cp.seq}) · CloudWatch {checkpoint.LOG_GROUP}, stream {run_id}")
+    if dt:
+        print(f"Dynatrace logs ({a.dt}): {dt.sent} records" + (f", {dt.errors} failed: {dt.last_error}" if dt.errors else "")
+              + (f" · {dt.dry_file.relative_to(HERE)}" if a.dt == "dry-run" else " · service.name viavi-twin on yqs73977"))
 
 
 REGION = "us-east-2"
@@ -259,7 +274,15 @@ def main() -> None:
     r.add_argument("--dynatrace", action="store_true", help="give the specialists dtctl tools and the Dynatrace for AI skills")
     r.add_argument("--cloud", action="store_true", help="run on AgentCore: one runtime per agent (aws/swarm-runtimes.json)")
     r.add_argument("--declare", action="store_true", help="a reportable run: declared first, evidence saved, records copied to Dynatrace")
+    r.add_argument("--twin", choices=["recorded", "live"], help="run on the Viavi twin: Stan's saved run, or the twin itself")
+    r.add_argument("--twin-scenario", default="s3-power-failure", help="an incident in scenarios/twin")
+    r.add_argument("--dt", choices=["off", "dry-run", "send"], default="off",
+                   help="with --twin: the twin's numbers and changes as Dynatrace logs (dry-run writes a local file)")
     a = ap.parse_args()
+    if a.twin and a.cloud:
+        ap.error("--twin runs on the laptop for now: the AgentCore runtimes can't reach the twin yet")
+    if a.dt != "off" and not a.twin:
+        ap.error("--dt goes with --twin")
     cmd_run_cloud(a) if a.cloud else cmd_run(a)
 
 
